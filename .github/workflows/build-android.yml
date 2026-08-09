@@ -33,7 +33,35 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Build debug APK
+      - name: Prepare permanent AVORA signing
+        shell: bash
+        env:
+          AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
+          AVORA_KEYSTORE_PASSWORD: ${{ secrets.AVORA_KEYSTORE_PASSWORD }}
+          AVORA_KEY_PASSWORD: ${{ secrets.AVORA_KEY_PASSWORD }}
+          AVORA_KEY_ALIAS: ${{ secrets.AVORA_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$AVORA_KEYSTORE_BASE64"
+          test -n "$AVORA_KEYSTORE_PASSWORD"
+          test -n "$AVORA_KEY_PASSWORD"
+          test -n "$AVORA_KEY_ALIAS"
+
+          printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
+
+          cat > android/key.properties <<EOF
+          storePassword=$AVORA_KEYSTORE_PASSWORD
+          keyPassword=$AVORA_KEY_PASSWORD
+          keyAlias=$AVORA_KEY_ALIAS
+          storeFile=avora-upload-key.jks
+          EOF
+
+          keytool -list \
+            -keystore android/app/avora-upload-key.jks \
+            -storepass "$AVORA_KEYSTORE_PASSWORD" \
+            -alias "$AVORA_KEY_ALIAS" >/dev/null
+
+      - name: Build release APK
         run: flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK
@@ -41,3 +69,7 @@ jobs:
         with:
           name: AVORA-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Cleanup signing files
+        if: always()
+        run: rm -f android/key.properties android/app/avora-upload-key.jks
