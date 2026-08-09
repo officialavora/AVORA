@@ -192,27 +192,70 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final email = TextEditingController();
+    final password = TextEditingController();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Log in')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const TextField(
+          TextField(
+            controller: email,
             keyboardType: TextInputType.emailAddress,
-            decoration: InputDecoration(labelText: 'Email'),
+            decoration: const InputDecoration(labelText: 'Email'),
           ),
           const SizedBox(height: 12),
-          const TextField(
+          TextField(
+            controller: password,
             obscureText: true,
-            decoration: InputDecoration(labelText: 'Password'),
+            decoration: const InputDecoration(labelText: 'Password'),
           ),
           const SizedBox(height: 18),
           FilledButton(
-            onPressed: onDemoLogin,
-            child: const Text('Continue — demo'),
+            onPressed: () async {
+              try {
+                await FirebaseAuth.instance.signInWithEmailAndPassword(
+                  email: email.text.trim(),
+                  password: password.text,
+                );
+                if (!context.mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                  (_) => false,
+                );
+              } on FirebaseAuthException catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.message ?? 'Login failed')),
+                );
+              }
+            },
+            child: const Text('Log in'),
           ),
           TextButton(
-            onPressed: () {},
+            onPressed: () async {
+              if (email.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter your email first')),
+                );
+                return;
+              }
+              try {
+                await FirebaseAuth.instance.sendPasswordResetEmail(
+                  email: email.text.trim(),
+                );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Password reset email sent')),
+                );
+              } on FirebaseAuthException catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.message ?? 'Could not send reset email')),
+                );
+              }
+            },
             child: const Text('Forgot password'),
           ),
         ],
@@ -231,6 +274,26 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   String gender = 'Prefer not to say';
 
+  final displayName = TextEditingController();
+  final country = TextEditingController();
+  final invite = TextEditingController();
+  final dob = TextEditingController();
+  final bio = TextEditingController();
+  final email = TextEditingController();
+  final password = TextEditingController();
+
+  @override
+  void dispose() {
+    displayName.dispose();
+    country.dispose();
+    invite.dispose();
+    dob.dispose();
+    bio.dispose();
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -238,8 +301,9 @@ class _SignupScreenState extends State<SignupScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const TextField(
-            decoration: InputDecoration(labelText: 'Display name *'),
+          TextField(
+            controller: displayName,
+            decoration: const InputDecoration(labelText: 'Display name *'),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -248,36 +312,83 @@ class _SignupScreenState extends State<SignupScreen> {
             items: const [
               DropdownMenuItem(value: 'Male', child: Text('Male')),
               DropdownMenuItem(value: 'Female', child: Text('Female')),
-              DropdownMenuItem(value: 'Prefer not to say', child: Text('Prefer not to say')),
+              DropdownMenuItem(
+                value: 'Prefer not to say',
+                child: Text('Prefer not to say'),
+              ),
             ],
             onChanged: (v) => setState(() => gender = v ?? gender),
           ),
           const SizedBox(height: 12),
-          const TextField(
-            decoration: InputDecoration(labelText: 'Country *'),
+          TextField(
+            controller: country,
+            decoration: const InputDecoration(labelText: 'Country *'),
           ),
           const SizedBox(height: 12),
-          const TextField(
-            decoration: InputDecoration(labelText: 'Invitation code (optional)'),
+          TextField(
+            controller: invite,
+            decoration: const InputDecoration(labelText: 'Invitation code (optional)'),
           ),
           const SizedBox(height: 12),
-          const TextField(
-            decoration: InputDecoration(labelText: 'Date of birth (optional)'),
+          TextField(
+            controller: dob,
+            decoration: const InputDecoration(labelText: 'Date of birth (optional)'),
           ),
           const SizedBox(height: 12),
-          const TextField(
+          TextField(
+            controller: bio,
             maxLines: 3,
-            decoration: InputDecoration(labelText: 'Bio (optional)'),
+            decoration: const InputDecoration(labelText: 'Bio (optional)'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: email,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'Email *'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: password,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Password *'),
           ),
           const SizedBox(height: 18),
           FilledButton(
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const MainShell()),
-                (_) => false,
-              );
+            onPressed: () async {
+              if (displayName.text.trim().isEmpty ||
+                  country.text.trim().isEmpty ||
+                  email.text.trim().isEmpty ||
+                  password.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Name, country, email and 6+ digit password required'),
+                  ),
+                );
+                return;
+              }
+
+              try {
+                final result =
+                    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                  email: email.text.trim(),
+                  password: password.text,
+                );
+
+                await result.user?.updateDisplayName(displayName.text.trim());
+
+                if (!context.mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                  (_) => false,
+                );
+              } on FirebaseAuthException catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.message ?? 'Account creation failed')),
+                );
+              }
             },
-            child: const Text('Create demo profile'),
+            child: const Text('Create account'),
           ),
         ],
       ),
