@@ -27,10 +27,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Android platform files if missing
-        run: |
-          flutter create             --platforms=android             --org com.officialavora             --project-name avora             .
-
       - name: Get packages
         run: flutter pub get
 
