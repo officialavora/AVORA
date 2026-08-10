@@ -1,5 +1,6 @@
 
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,56 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const AvoraApp());
+}
+
+
+Future<Map<String, dynamic>> ensureAvoraAccount() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    throw StateError('Not signed in');
+  }
+
+  final db = FirebaseFirestore.instance;
+  final userRef = db.collection('users').doc(user.uid);
+  final counterRef = db.collection('system').doc('counters');
+
+  return db.runTransaction<Map<String, dynamic>>((transaction) async {
+    final userSnapshot = await transaction.get(userRef);
+    final existing = userSnapshot.data();
+
+    if (userSnapshot.exists && existing != null) {
+      return existing;
+    }
+
+    final counterSnapshot = await transaction.get(counterRef);
+    final counter = counterSnapshot.data();
+
+    if (!counterSnapshot.exists ||
+        counter == null ||
+        counter['lastUserId'] is! int) {
+      throw StateError('AVORA ID counter is not configured');
+    }
+
+    final nextId = (counter['lastUserId'] as int) + 1;
+    final name = (user.displayName?.trim().isNotEmpty ?? false)
+        ? user.displayName!.trim()
+        : 'AVORA User';
+
+    transaction.update(counterRef, {'lastUserId': nextId});
+
+    transaction.set(userRef, {
+      'originalAvoraId': nextId,
+      'role': 'user',
+      'displayName': name,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return {
+      'originalAvoraId': nextId,
+      'role': 'user',
+      'displayName': name,
+    };
+  });
 }
 
 class AvoraApp extends StatelessWidget {
@@ -405,28 +456,92 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int index = 0;
+  late Future<Map<String, dynamic>> accountFuture;
 
-  final pages = const [
-    HomePage(),
-    RoomsPage(),
-    MessagesPage(),
-    ProfilePage(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    accountFuture = ensureAvoraAccount();
+  }
+
+  void retry() {
+    setState(() {
+      accountFuture = ensureAvoraAccount();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: pages[index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (v) => setState(() => index = v),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.mic_none), selectedIcon: Icon(Icons.mic), label: 'Rooms'),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Messages'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+    return FutureBuilder<Map<String, dynamic>>(
+      future: accountFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || snapshot.data == null) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Could not prepare your AVORA ID',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: retry,
+                      child: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final pages = <Widget>[
+          const HomePage(),
+          const RoomsPage(),
+          const MessagesPage(),
+          ProfilePage(account: snapshot.data!),
+        ];
+
+        return Scaffold(
+          body: pages[index],
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: index,
+            onDestinationSelected: (v) => setState(() => index = v),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.mic_none),
+                selectedIcon: Icon(Icons.mic),
+                label: 'Rooms',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.chat_bubble_outline),
+                selectedIcon: Icon(Icons.chat_bubble),
+                label: 'Messages',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -652,21 +767,22 @@ class MessagesPage extends StatelessWidget {
 }
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  final Map<String, dynamic> account;
+
+  const ProfilePage({super.key, required this.account});
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final name = (user?.displayName?.trim().isNotEmpty ?? false)
-        ? user!.displayName!.trim()
-        : 'AVORA User';
-    final uid = user?.uid ?? '';
-    final seed = uid.codeUnits.fold<int>(
-      0,
-      (value, code) => (value * 131 + code) % 90000000,
-    );
-    final avoraId = 10000000 + seed;
-    const role = 'USER';
+
+    final name = (account['displayName'] as String?)?.trim().isNotEmpty == true
+        ? (account['displayName'] as String).trim()
+        : ((user?.displayName?.trim().isNotEmpty ?? false)
+            ? user!.displayName!.trim()
+            : 'AVORA User');
+
+    final avoraId = account['originalAvoraId'] ?? '—';
+    final role = (account['role'] ?? 'user').toString().toUpperCase();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -678,22 +794,24 @@ class ProfilePage extends StatelessWidget {
           Center(
             child: Text(
               name,
-              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Center(
             child: Text(
               'ID: $avoraId',
-              style: const TextStyle(fontSize: 15, color: Colors.white70),
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          const Center(
-            child: Chip(
-              label: Text(role),
-            ),
-          ),
+          Center(child: Chip(label: Text(role))),
           const SizedBox(height: 22),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -708,22 +826,22 @@ class ProfilePage extends StatelessWidget {
           const _FeatureTile(
             icon: Icons.account_balance_wallet,
             title: 'Wallet',
-            subtitle: 'Economy module — planned',
+            subtitle: 'Coins, diamonds and transactions',
           ),
           const _FeatureTile(
             icon: Icons.workspace_premium,
             title: 'VIP / Levels',
-            subtitle: 'Configurable system — planned',
+            subtitle: 'Benefits and premium identity',
           ),
           const _FeatureTile(
             icon: Icons.groups,
             title: 'Family / CP',
-            subtitle: 'Relationship module — planned',
+            subtitle: 'Family and relationship center',
           ),
           const _FeatureTile(
             icon: Icons.settings,
             title: 'Settings',
-            subtitle: 'Privacy, audio and app preferences',
+            subtitle: 'Privacy, security and preferences',
           ),
           const SizedBox(height: 14),
           FilledButton.tonalIcon(
