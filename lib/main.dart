@@ -49,6 +49,14 @@ Future<Map<String, dynamic>> ensureAvoraAccount() async {
     transaction.set(userRef, {
       'originalAvoraId': nextId,
       'role': 'user',
+      'authorityRole': 'user',
+      'commerceRole': 'none',
+      'staffAssignments': <String>[],
+      'scopeType': 'self',
+      'countryCode': null,
+      'managerId': null,
+      'bdId': null,
+      'agencyId': null,
       'displayName': name,
       'createdAt': FieldValue.serverTimestamp(),
     });
