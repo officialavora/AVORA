@@ -656,6 +656,13 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final name = (user?.displayName?.trim().isNotEmpty ?? false)
+        ? user!.displayName!.trim()
+        : 'AVORA User';
+    final email = user?.email ?? 'No email';
+    final uid = user?.uid ?? 'Not signed in';
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
@@ -663,10 +670,22 @@ class ProfilePage extends StatelessWidget {
         children: [
           const Center(child: AvoraLogo(size: 92)),
           const SizedBox(height: 14),
-          const Center(
-            child: Text('AVORA User', style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+          Center(
+            child: Text(
+              name,
+              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+            ),
           ),
-          const Center(child: Text('ID: demo')),
+          const SizedBox(height: 5),
+          Center(child: Text(email)),
+          const SizedBox(height: 5),
+          Center(
+            child: SelectableText(
+              'UID: $uid',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
+            ),
+          ),
           const SizedBox(height: 22),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -678,10 +697,39 @@ class ProfilePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const _FeatureTile(icon: Icons.account_balance_wallet, title: 'Wallet', subtitle: 'Economy module — planned'),
-          const _FeatureTile(icon: Icons.workspace_premium, title: 'VIP / Levels', subtitle: 'Configurable system — planned'),
-          const _FeatureTile(icon: Icons.groups, title: 'Family / CP', subtitle: 'Relationship module — planned'),
-          const _FeatureTile(icon: Icons.settings, title: 'Settings', subtitle: 'Privacy, audio and app preferences'),
+          const _FeatureTile(
+            icon: Icons.account_balance_wallet,
+            title: 'Wallet',
+            subtitle: 'Economy module — planned',
+          ),
+          const _FeatureTile(
+            icon: Icons.workspace_premium,
+            title: 'VIP / Levels',
+            subtitle: 'Configurable system — planned',
+          ),
+          const _FeatureTile(
+            icon: Icons.groups,
+            title: 'Family / CP',
+            subtitle: 'Relationship module — planned',
+          ),
+          const _FeatureTile(
+            icon: Icons.settings,
+            title: 'Settings',
+            subtitle: 'Privacy, audio and app preferences',
+          ),
+          const SizedBox(height: 14),
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                (_) => false,
+              );
+            },
+            icon: const Icon(Icons.logout),
+            label: const Text('Sign out'),
+          ),
         ],
       ),
     );
