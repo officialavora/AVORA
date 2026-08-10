@@ -11,6 +11,7 @@ enum AvoraAuthorityRole {
 enum AvoraCommerceRole {
   none,
   seller,
+  dealer,
   merchant,
 }
 
@@ -20,6 +21,7 @@ enum AvoraStaffAssignment {
   csHead,
   eventOrganizer,
   countryManager,
+  official,
 }
 
 enum AvoraScopeType {
