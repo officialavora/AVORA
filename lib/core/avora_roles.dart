@@ -14,12 +14,11 @@ enum AvoraCommerceRole {
   merchant,
 }
 
-enum AvoraStaffAssignment {
-  none,
-  customerService,
-  csHead,
-  eventOrganizer,
+enum AvoraStaffCapability {
   countryManager,
+  csHead,
+  customerService,
+  eventOrganizer,
 }
 
 enum AvoraScopeType {
@@ -52,38 +51,8 @@ extension AvoraAuthorityRoleX on AvoraAuthorityRole {
   }
 }
 
-extension AvoraCommerceRoleX on AvoraCommerceRole {
-  String get title {
-    switch (this) {
-      case AvoraCommerceRole.merchant:
-        return 'Merchant';
-      case AvoraCommerceRole.seller:
-        return 'Seller';
-      case AvoraCommerceRole.none:
-        return 'None';
-    }
-  }
-}
-
-extension AvoraStaffAssignmentX on AvoraStaffAssignment {
-  String get title {
-    switch (this) {
-      case AvoraStaffAssignment.customerService:
-        return 'Customer Service';
-      case AvoraStaffAssignment.csHead:
-        return 'CS Head';
-      case AvoraStaffAssignment.eventOrganizer:
-        return 'Event Organizer';
-      case AvoraStaffAssignment.countryManager:
-        return 'Country Manager';
-      case AvoraStaffAssignment.none:
-        return 'None';
-    }
-  }
-}
-
 class AvoraRoleStructure {
-  static const Map<AvoraAuthorityRole, int> authorityRank = {
+  static const Map<AvoraAuthorityRole, int> rank = {
     AvoraAuthorityRole.user: 0,
     AvoraAuthorityRole.agency: 10,
     AvoraAuthorityRole.bd: 20,
@@ -93,42 +62,12 @@ class AvoraRoleStructure {
     AvoraAuthorityRole.owner: 100,
   };
 
-  static const Map<AvoraAuthorityRole, Set<AvoraAuthorityRole>> canAppoint = {
-    AvoraAuthorityRole.owner: {
-      AvoraAuthorityRole.manager,
-      AvoraAuthorityRole.superAdmin,
-      AvoraAuthorityRole.admin,
-      AvoraAuthorityRole.bd,
-      AvoraAuthorityRole.agency,
-      AvoraAuthorityRole.user,
-    },
-    AvoraAuthorityRole.manager: {
-      AvoraAuthorityRole.superAdmin,
-      AvoraAuthorityRole.admin,
-      AvoraAuthorityRole.bd,
-      AvoraAuthorityRole.agency,
-      AvoraAuthorityRole.user,
-    },
-    AvoraAuthorityRole.superAdmin: {
-      AvoraAuthorityRole.admin,
-      AvoraAuthorityRole.bd,
-      AvoraAuthorityRole.agency,
-      AvoraAuthorityRole.user,
-    },
-    AvoraAuthorityRole.admin: {
-      AvoraAuthorityRole.bd,
-      AvoraAuthorityRole.agency,
-      AvoraAuthorityRole.user,
-    },
-    AvoraAuthorityRole.bd: {
-      AvoraAuthorityRole.agency,
-      AvoraAuthorityRole.user,
-    },
-    AvoraAuthorityRole.agency: {
-      AvoraAuthorityRole.user,
-    },
-    AvoraAuthorityRole.user: {},
-  };
+  static bool canAssign(
+    AvoraAuthorityRole actor,
+    AvoraAuthorityRole target,
+  ) {
+    return (rank[actor] ?? 0) > (rank[target] ?? 0);
+  }
 
   static const Set<AvoraAuthorityRole> launchAuthorityRoles = {
     AvoraAuthorityRole.manager,
