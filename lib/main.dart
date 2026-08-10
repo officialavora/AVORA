@@ -660,8 +660,13 @@ class ProfilePage extends StatelessWidget {
     final name = (user?.displayName?.trim().isNotEmpty ?? false)
         ? user!.displayName!.trim()
         : 'AVORA User';
-    final email = user?.email ?? 'No email';
-    final uid = user?.uid ?? 'Not signed in';
+    final uid = user?.uid ?? '';
+    final seed = uid.codeUnits.fold<int>(
+      0,
+      (value, code) => (value * 131 + code) % 90000000,
+    );
+    final avoraId = 10000000 + seed;
+    const role = 'USER';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -677,13 +682,16 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Center(child: Text(email)),
-          const SizedBox(height: 5),
           Center(
-            child: SelectableText(
-              'UID: $uid',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+            child: Text(
+              'ID: $avoraId',
+              style: const TextStyle(fontSize: 15, color: Colors.white70),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Center(
+            child: Chip(
+              label: Text(role),
             ),
           ),
           const SizedBox(height: 22),
