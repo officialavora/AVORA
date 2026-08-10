@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Timer(const Duration(milliseconds: 1800), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+        MaterialPageRoute(builder: (_) => FirebaseAuth.instance.currentUser == null ? const WelcomeScreen() : const MainShell()),
       );
     });
   }
