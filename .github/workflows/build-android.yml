@@ -30,6 +30,14 @@ jobs:
       - name: Get packages
         run: flutter pub get
 
+      - name: Patch ZEGO Android compile SDK
+        shell: bash
+        run: |
+          ZEGO_GRADLE="$(find "$HOME/.pub-cache/hosted/pub.dev" -path '*/zego_express_engine-*/android/build.gradle' -print -quit)"
+          test -n "$ZEGO_GRADLE"
+          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_GRADLE"
+          grep -n 'compileSdk' "$ZEGO_GRADLE"
+
       - name: Analyze
         run: flutter analyze
 
