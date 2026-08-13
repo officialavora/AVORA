@@ -31,10 +31,15 @@ jobs:
       - name: Patch ZEGO Android compile SDK
         shell: bash
         run: |
-          ZEGO_GRADLE="$(find "$HOME/.pub-cache/hosted/pub.dev" -path '*/zego_express_engine-*/android/build.gradle' -print -quit)"
-          test -n "$ZEGO_GRADLE"
-          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_GRADLE"
-          grep -n 'compileSdk' "$ZEGO_GRADLE"
+          set -euo pipefail
+          mapfile -t ZEGO_GRADLES < <(find "$HOME" -type f \( -name build.gradle -o -name build.gradle.kts \) -path '*zego_express_engine*/android/*' -print 2>/dev/null)
+          echo "Found ${#ZEGO_GRADLES[@]} ZEGO Gradle file(s)"
+          test "${#ZEGO_GRADLES[@]}" -gt 0
+          for f in "${ZEGO_GRADLES[@]}"; do
+            echo "Patching: $f"
+            sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/g; s/compileSdk[[:space:]]*=?[[:space:]]*[0-9]+/compileSdk 36/g' "$f"
+            grep -nE 'compileSdk' "$f" || true
+          done
 
       - name: Prepare permanent AVORA signing
         shell: bash
