@@ -1,4 +1,4 @@
-package com.officialavora.avora
+package com.officialavora.app
 
 import io.flutter.embedding.android.FlutterActivity
 

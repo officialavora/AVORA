@@ -1,16 +1,16 @@
-
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'services/avora_google_sign_in_adapter.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const AvoraApp());
 }
-
 
 Future<Map<String, dynamic>> ensureAvoraAccount() async {
   final user = FirebaseAuth.instance.currentUser;
@@ -107,7 +107,10 @@ class _SplashScreenState extends State<SplashScreen> {
     Timer(const Duration(milliseconds: 1800), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => FirebaseAuth.instance.currentUser == null ? const WelcomeScreen() : const MainShell()),
+        MaterialPageRoute(
+            builder: (_) => FirebaseAuth.instance.currentUser == null
+                ? const WelcomeScreen()
+                : const MainShell()),
       );
     });
   }
@@ -222,7 +225,9 @@ class WelcomeScreen extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => LoginScreen(onDemoLogin: () => _openHome(context))),
+                      MaterialPageRoute(
+                          builder: (_) => LoginScreen(
+                              onDemoLogin: () => _openHome(context))),
                     );
                   },
                   child: const Padding(
@@ -248,6 +253,38 @@ class WelcomeScreen extends StatelessWidget {
 class LoginScreen extends StatelessWidget {
   final VoidCallback onDemoLogin;
   const LoginScreen({super.key, required this.onDemoLogin});
+
+  Future<void> _signInWithGoogle(BuildContext context) async {
+    try {
+      final adapter = AvoraGoogleSignInAdapter();
+      await adapter.initialize();
+
+      final result = await adapter.signIn();
+
+      if (!context.mounted) return;
+
+      if (result.success) {
+        onDemoLogin();
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Google sign-in failed: ${result.error.name}',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Google sign-in error: $error'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -292,6 +329,12 @@ class LoginScreen extends StatelessWidget {
             },
             child: const Text('Log in'),
           ),
+          OutlinedButton.icon(
+            onPressed: () => _signInWithGoogle(context),
+            icon: const Icon(Icons.login),
+            label: const Text('Continue with Google'),
+          ),
+          const SizedBox(height: 12),
           TextButton(
             onPressed: () async {
               if (email.text.trim().isEmpty) {
@@ -311,7 +354,8 @@ class LoginScreen extends StatelessWidget {
               } on FirebaseAuthException catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.message ?? 'Could not send reset email')),
+                  SnackBar(
+                      content: Text(e.message ?? 'Could not send reset email')),
                 );
               }
             },
@@ -386,12 +430,14 @@ class _SignupScreenState extends State<SignupScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: invite,
-            decoration: const InputDecoration(labelText: 'Invitation code (optional)'),
+            decoration:
+                const InputDecoration(labelText: 'Invitation code (optional)'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: dob,
-            decoration: const InputDecoration(labelText: 'Date of birth (optional)'),
+            decoration:
+                const InputDecoration(labelText: 'Date of birth (optional)'),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -420,7 +466,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   password.text.length < 6) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Name, country, email and 6+ digit password required'),
+                    content: Text(
+                        'Name, country, email and 6+ digit password required'),
                   ),
                 );
                 return;
@@ -443,7 +490,8 @@ class _SignupScreenState extends State<SignupScreen> {
               } on FirebaseAuthException catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.message ?? 'Account creation failed')),
+                  SnackBar(
+                      content: Text(e.message ?? 'Account creation failed')),
                 );
               }
             },
@@ -577,11 +625,21 @@ class HomePage extends StatelessWidget {
         children: const [
           _HeroCard(),
           SizedBox(height: 18),
-          Text('Discover', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text('Discover',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           SizedBox(height: 10),
-          _FeatureTile(icon: Icons.mic, title: 'Voice Rooms', subtitle: 'Join conversations and communities'),
-          _FeatureTile(icon: Icons.videocam, title: 'Live', subtitle: 'Video and interactive live rooms — planned'),
-          _FeatureTile(icon: Icons.card_giftcard, title: 'Rewards', subtitle: 'Tasks, levels and rewards — planned'),
+          _FeatureTile(
+              icon: Icons.mic,
+              title: 'Voice Rooms',
+              subtitle: 'Join conversations and communities'),
+          _FeatureTile(
+              icon: Icons.videocam,
+              title: 'Live',
+              subtitle: 'Video and interactive live rooms — planned'),
+          _FeatureTile(
+              icon: Icons.card_giftcard,
+              title: 'Rewards',
+              subtitle: 'Tasks, levels and rewards — planned'),
         ],
       ),
     );
@@ -604,7 +662,8 @@ class _HeroCard extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('AVORA', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
+          Text('AVORA',
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
           SizedBox(height: 6),
           Text('Your world. Your voice.'),
           SizedBox(height: 30),
@@ -729,7 +788,8 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
             decoration: const InputDecoration(labelText: 'Privacy'),
             items: const [
               DropdownMenuItem(value: 'Public', child: Text('Public')),
-              DropdownMenuItem(value: 'Approval', child: Text('Approval required')),
+              DropdownMenuItem(
+                  value: 'Approval', child: Text('Approval required')),
               DropdownMenuItem(value: 'Private', child: Text('Private')),
             ],
             onChanged: (v) => setState(() => privacy = v ?? privacy),
@@ -879,8 +939,10 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.white70)),
       ],
     );
   }
