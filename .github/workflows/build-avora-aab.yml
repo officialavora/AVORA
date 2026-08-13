@@ -6,28 +6,55 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Flutter version
-        run: flutter --version
-
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Prepare permanent AVORA signing
+        shell: bash
+        env:
+          AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
+          AVORA_KEYSTORE_PASSWORD: ${{ secrets.AVORA_KEYSTORE_PASSWORD }}
+          AVORA_KEY_PASSWORD: ${{ secrets.AVORA_KEY_PASSWORD }}
+          AVORA_KEY_ALIAS: ${{ secrets.AVORA_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$AVORA_KEYSTORE_BASE64"
+          test -n "$AVORA_KEYSTORE_PASSWORD"
+          test -n "$AVORA_KEY_PASSWORD"
+          test -n "$AVORA_KEY_ALIAS"
+
+          printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
+
+          cat > android/key.properties <<EOF
+          storePassword=$AVORA_KEYSTORE_PASSWORD
+          keyPassword=$AVORA_KEY_PASSWORD
+          keyAlias=$AVORA_KEY_ALIAS
+          storeFile=avora-upload-key.jks
+          EOF
+
+          keytool -list \
+            -keystore android/app/avora-upload-key.jks \
+            -storepass "$AVORA_KEYSTORE_PASSWORD" \
+            -alias "$AVORA_KEY_ALIAS" >/dev/null
 
       - name: Build release AAB
         run: flutter build appbundle --release
@@ -35,6 +62,10 @@ jobs:
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: avora-release-aab
+          name: AVORA-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+
+      - name: Cleanup signing files
+        if: always()
+        run: rm -f android/key.properties android/app/avora-upload-key.jks
