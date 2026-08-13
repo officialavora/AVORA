@@ -2,8 +2,6 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "main" ]
 
 jobs:
   build:
@@ -25,23 +23,37 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: "3.47.0"
           cache: true
+          pub-cache: true
 
-      - name: Get packages
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Patch ZEGO Android compile SDK
+      - name: Verify AVORA build inputs
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t ZEGO_GRADLES < <(find "$HOME" -type f \( -name build.gradle -o -name build.gradle.kts \) -path '*zego_express_engine*/android/*' -print 2>/dev/null)
-          echo "Found ${#ZEGO_GRADLES[@]} ZEGO Gradle file(s)"
-          test "${#ZEGO_GRADLES[@]}" -gt 0
-          for f in "${ZEGO_GRADLES[@]}"; do
-            echo "Patching: $f"
-            sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/g; s/compileSdk[[:space:]]*=?[[:space:]]*[0-9]+/compileSdk 36/g' "$f"
-            grep -nE 'compileSdk' "$f" || true
-          done
+          grep -q 'applicationId = "com.officialavora.app"' android/app/build.gradle.kts
+          grep -q '"package_name": "com.officialavora.app"' android/app/google-services.json
+          test -f lib/services/avora_google_sign_in_adapter.dart
+          test -f lib/services/avora_firebase_auth_bridge.dart
+          test -f lib/core/avora_account_linking.dart
+          echo "AVORA identity and source files verified"
+
+      - name: Patch ZEGO Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PUB_CACHE=$PUB_CACHE"
+          ZEGO_GRADLE="$(find "$PUB_CACHE" -type f -path '*/zego_express_engine-*/android/build.gradle' -print -quit)"
+          test -n "$ZEGO_GRADLE"
+          echo "ZEGO_GRADLE=$ZEGO_GRADLE"
+          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_GRADLE"
+          sed -i -E "s/com\.android\.tools\.build:gradle:[0-9.]+/com.android.tools.build:gradle:9.0.1/" "$ZEGO_GRADLE"
+          grep -qE 'compileSdkVersion[[:space:]]+36' "$ZEGO_GRADLE"
+          grep -q 'com.android.tools.build:gradle:9.0.1' "$ZEGO_GRADLE"
+          grep -nE 'compileSdkVersion|com.android.tools.build:gradle' "$ZEGO_GRADLE"
 
       - name: Analyze
         run: flutter analyze
@@ -59,16 +71,13 @@ jobs:
           test -n "$AVORA_KEYSTORE_PASSWORD"
           test -n "$AVORA_KEY_PASSWORD"
           test -n "$AVORA_KEY_ALIAS"
-
           printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
-
           cat > android/key.properties <<EOF
           storePassword=$AVORA_KEYSTORE_PASSWORD
           keyPassword=$AVORA_KEY_PASSWORD
           keyAlias=$AVORA_KEY_ALIAS
           storeFile=avora-upload-key.jks
           EOF
-
           keytool -list \
             -keystore android/app/avora-upload-key.jks \
             -storepass "$AVORA_KEYSTORE_PASSWORD" \
@@ -77,11 +86,12 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release --target-platform android-arm64
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: AVORA-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
 
       - name: Cleanup signing files
         if: always()
