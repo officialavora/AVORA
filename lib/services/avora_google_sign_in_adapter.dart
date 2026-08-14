@@ -68,7 +68,8 @@ class AvoraGoogleSignInAdapter {
 
     await googleSignIn.initialize(
       clientId: clientId,
-      serverClientId: serverClientId,
+      serverClientId: serverClientId ??
+          '553162958068-i9323bql4svshr06mm93via5j645nd5r.apps.googleusercontent.com',
     );
 
     _initialized = true;
@@ -114,10 +115,9 @@ class AvoraGoogleSignInAdapter {
         providerSubjectId: account.id,
         credential: credential,
       );
-    } on GoogleSignInException {
-      return const _AvoraGoogleCredentialResult(
-        success: false,
-        error: AvoraGoogleAuthError.googleAuthenticationFailed,
+    } on GoogleSignInException catch (e) {
+      throw Exception(
+        'GoogleSignInException code=${e.code} description=${e.description}',
       );
     }
   }
