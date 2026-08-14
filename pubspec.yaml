@@ -1,7 +1,7 @@
 name: avora
 description: AVORA cross-platform social voice/video/live app starter.
 publish_to: "none"
-version: 0.1.0+4
+version: 0.1.0+5
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -12,7 +12,7 @@ dependencies:
   firebase_core: ^4.13.0
   flutter:
     sdk: flutter
-  google_sign_in: ^7.2.0
+  google_sign_in: 6.3.0
   zego_express_engine: ^3.25.0
 
 dev_dependencies:
