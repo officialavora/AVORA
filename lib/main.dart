@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 
 Future<void> main() async {
