@@ -22,14 +22,6 @@
           }
         },
         {
-          "client_id": "553162958068-muo31m3oots0d19vdh43rh0pkfdar02j.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.officialavora.app",
-            "certificate_hash": "6f5d1f2df333a80f3a66b90f039fcac0a86c672c"
-          }
-        },
-        {
           "client_id": "553162958068-i9323bql4svshr06mm93via5j645nd5r.apps.googleusercontent.com",
           "client_type": 3
         }
