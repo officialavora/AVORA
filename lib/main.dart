@@ -12,11 +12,15 @@ Future<void> main() async {
   runApp(const AvoraApp());
 }
 
-Future<Map<String, dynamic>> ensureAvoraAccount() async {
+Future<Map<String, dynamic>> ensureAvoraAccount({
+  void Function(String status)? onProgress,
+}) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) {
     throw StateError('Not signed in');
   }
+
+  onProgress?.call('Creating AVORA account');
 
   final db = FirebaseFirestore.instance;
   final userRef = db.collection('users').doc(user.uid);
@@ -39,6 +43,7 @@ Future<Map<String, dynamic>> ensureAvoraAccount() async {
       throw StateError('AVORA ID counter is not configured');
     }
 
+    onProgress?.call('Generating permanent AVORA ID');
     final nextId = (counter['lastUserId'] as int) + 1;
     final name = (user.displayName?.trim().isNotEmpty ?? false)
         ? user.displayName!.trim()
@@ -46,6 +51,7 @@ Future<Map<String, dynamic>> ensureAvoraAccount() async {
 
     transaction.update(counterRef, {'lastUserId': nextId});
 
+    onProgress?.call('Saving profile');
     transaction.set(userRef, {
       'originalAvoraId': nextId,
       'role': 'user',
@@ -250,52 +256,142 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   final VoidCallback onDemoLogin;
+
   const LoginScreen({super.key, required this.onDemoLogin});
 
-  Future<void> _signInWithGoogle(BuildContext context) async {
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final email = TextEditingController();
+  final password = TextEditingController();
+
+  bool googleBusy = false;
+  String? authProgress;
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
+  }
+
+  void _setProgress(String value) {
+    if (!mounted) return;
+    setState(() => authProgress = value);
+  }
+
+  String _googleFailureMessage(AvoraGoogleAuthResult result) {
+    switch (result.error) {
+      case AvoraGoogleAuthError.notInitialized:
+        return 'Google sign-in is still preparing. Please try again.';
+      case AvoraGoogleAuthError.interactiveAuthUnsupported:
+        return 'Google sign-in is not available on this device.';
+      case AvoraGoogleAuthError.missingIdToken:
+        return 'Google could not verify this account. Please try again.';
+      case AvoraGoogleAuthError.firebaseBridgeRejected:
+        if (result.firebaseError ==
+            AvoraFirebaseAuthBridgeError.networkError) {
+          return 'Your connection was interrupted. Check the network and retry.';
+        }
+        if (result.firebaseError ==
+            AvoraFirebaseAuthBridgeError.userDisabled) {
+          return 'This account is unavailable. Please contact AVORA support.';
+        }
+        return 'AVORA could not complete Google sign-in. Please try again.';
+      case AvoraGoogleAuthError.googleAuthenticationFailed:
+        return 'Google sign-in did not complete. Please try again.';
+      case AvoraGoogleAuthError.avoraPolicyApprovalRequired:
+        return 'This account cannot be linked yet.';
+      case AvoraGoogleAuthError.none:
+        return 'Google sign-in did not complete. Please try again.';
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (googleBusy) return;
+
+    setState(() {
+      googleBusy = true;
+      authProgress = 'Connecting to Google';
+    });
+
     try {
       final adapter = AvoraGoogleSignInAdapter();
       await adapter.initialize();
 
+      _setProgress('Waiting for Google account');
       final result = await adapter.signIn();
 
-      if (!context.mounted) return;
+      if (!mounted) return;
 
-      if (result.success) {
-        onDemoLogin();
+      if (!result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_googleFailureMessage(result))),
+        );
         return;
       }
 
+      _setProgress('Google account verified');
+
+      await ensureAvoraAccount(
+        onProgress: _setProgress,
+      );
+
+      _setProgress('Account ready');
+      if (!mounted) return;
+      widget.onDemoLogin();
+    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
-            'Google sign-in failed: ${result.error.name}',
+            'AVORA could not finish signing in. Please check your connection and retry.',
           ),
         ),
       );
-    } catch (error) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Google sign-in error: $error'),
-        ),
-      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          googleBusy = false;
+          authProgress = null;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final email = TextEditingController();
-    final password = TextEditingController();
-
     return Scaffold(
       appBar: AppBar(title: const Text('Log in')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (authProgress != null) ...[
+            Semantics(
+              liveRegion: true,
+              label: authProgress,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(child: Text(authProgress!)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           TextField(
             controller: email,
             keyboardType: TextInputType.emailAddress,
@@ -309,56 +405,69 @@ class LoginScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           FilledButton(
-            onPressed: () async {
-              try {
-                await FirebaseAuth.instance.signInWithEmailAndPassword(
-                  email: email.text.trim(),
-                  password: password.text,
-                );
-                if (!context.mounted) return;
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const MainShell()),
-                  (_) => false,
-                );
-              } on FirebaseAuthException catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(e.message ?? 'Login failed')),
-                );
-              }
-            },
+            onPressed: googleBusy
+                ? null
+                : () async {
+                    try {
+                      await FirebaseAuth.instance.signInWithEmailAndPassword(
+                        email: email.text.trim(),
+                        password: password.text,
+                      );
+                      if (!context.mounted) return;
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const MainShell()),
+                        (_) => false,
+                      );
+                    } on FirebaseAuthException {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Login failed. Check your email and password, then try again.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
             child: const Text('Log in'),
           ),
           OutlinedButton.icon(
-            onPressed: () => _signInWithGoogle(context),
+            onPressed: googleBusy ? null : _signInWithGoogle,
             icon: const Icon(Icons.login),
             label: const Text('Continue with Google'),
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: () async {
-              if (email.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Enter your email first')),
-                );
-                return;
-              }
-              try {
-                await FirebaseAuth.instance.sendPasswordResetEmail(
-                  email: email.text.trim(),
-                );
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password reset email sent')),
-                );
-              } on FirebaseAuthException catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(e.message ?? 'Could not send reset email')),
-                );
-              }
-            },
+            onPressed: googleBusy
+                ? null
+                : () async {
+                    if (email.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Enter your email first')),
+                      );
+                      return;
+                    }
+                    try {
+                      await FirebaseAuth.instance.sendPasswordResetEmail(
+                        email: email.text.trim(),
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password reset email sent'),
+                        ),
+                      );
+                    } on FirebaseAuthException {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Could not send the reset email. Please verify the address and retry.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
             child: const Text('Forgot password'),
           ),
         ],
