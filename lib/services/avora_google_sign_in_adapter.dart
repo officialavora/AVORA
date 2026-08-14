@@ -54,10 +54,21 @@ class AvoraGoogleSignInAdapter {
   AvoraGoogleSignInAdapter({
     GoogleSignIn? googleSignIn,
     AvoraFirebaseAuthBridge? firebaseBridge,
-    this.clientId,
-    this.serverClientId,
-  })  : googleSignIn = googleSignIn ?? GoogleSignIn.instance,
-        firebaseBridge = firebaseBridge ?? AvoraFirebaseAuthBridge();
+    String? clientId,
+    String? serverClientId,
+  })  : clientId = clientId,
+        serverClientId = serverClientId,
+        googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              clientId: clientId,
+              serverClientId: serverClientId ??
+                  '553162958068-i9323bql4svshr06mm93via5j645nd5r.apps.googleusercontent.com',
+              scopes: const <String>[
+                'email',
+              ],
+            ),
+        firebaseBridge =
+            firebaseBridge ?? AvoraFirebaseAuthBridge();
 
   bool get initialized => _initialized;
 
@@ -66,12 +77,9 @@ class AvoraGoogleSignInAdapter {
       return;
     }
 
-    await googleSignIn.initialize(
-      clientId: clientId,
-      serverClientId: serverClientId ??
-          '553162958068-i9323bql4svshr06mm93via5j645nd5r.apps.googleusercontent.com',
-    );
-
+    /// google_sign_in 6.x is configured through the
+    /// GoogleSignIn constructor, so no async SDK initialize
+    /// call is required here.
     _initialized = true;
   }
 
@@ -83,18 +91,23 @@ class AvoraGoogleSignInAdapter {
       );
     }
 
-    if (!googleSignIn.supportsAuthenticate()) {
-      return const _AvoraGoogleCredentialResult(
-        success: false,
-        error: AvoraGoogleAuthError.interactiveAuthUnsupported,
-      );
-    }
-
     try {
-      final account = await googleSignIn.authenticate();
+      /// google_sign_in 6.x uses the legacy signIn() flow.
+      final GoogleSignInAccount? account =
+          await googleSignIn.signIn();
 
-      final authentication = account.authentication;
-      final idToken = authentication.idToken;
+      /// A null account means the interactive flow was cancelled.
+      if (account == null) {
+        return const _AvoraGoogleCredentialResult(
+          success: false,
+          error: AvoraGoogleAuthError.googleAuthenticationFailed,
+        );
+      }
+
+      final GoogleSignInAuthentication authentication =
+          await account.authentication;
+
+      final String? idToken = authentication.idToken;
 
       if (idToken == null || idToken.trim().isEmpty) {
         return const _AvoraGoogleCredentialResult(
@@ -105,7 +118,9 @@ class AvoraGoogleSignInAdapter {
 
       /// Token is used only transiently to construct the
       /// Firebase credential. It is never stored in AVORA core.
-      final credential = GoogleAuthProvider.credential(
+      final OAuthCredential credential =
+          GoogleAuthProvider.credential(
+        accessToken: authentication.accessToken,
         idToken: idToken,
       );
 
@@ -115,10 +130,10 @@ class AvoraGoogleSignInAdapter {
         providerSubjectId: account.id,
         credential: credential,
       );
-    } on GoogleSignInException catch (e) {
-      throw Exception(
-        'GoogleSignInException code=${e.code} description=${e.description}',
-      );
+    } catch (e) {
+      /// Keep the real v6/platform error visible during testing
+      /// instead of hiding it behind a generic failure.
+      throw Exception('Google Sign-In v6 error: $e');
     }
   }
 
