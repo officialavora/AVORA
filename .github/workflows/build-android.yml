@@ -45,15 +45,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "PUB_CACHE=$PUB_CACHE"
-          ZEGO_GRADLE="$(find "$PUB_CACHE" -type f -path '*/zego_express_engine-*/android/build.gradle' -print -quit)"
-          test -n "$ZEGO_GRADLE"
+          ZEGO_DIR="$(find "$PUB_CACHE/hosted/pub.dev" -maxdepth 1 -type d -name 'zego_express_engine-*' -print -quit)"
+          test -n "$ZEGO_DIR"
+
+          ZEGO_GRADLE="$ZEGO_DIR/android/build.gradle"
+          test -f "$ZEGO_GRADLE"
+
           echo "ZEGO_GRADLE=$ZEGO_GRADLE"
+
           sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_GRADLE"
-          sed -i -E "s/com\.android\.tools\.build:gradle:[0-9.]+/com.android.tools.build:gradle:9.0.1/" "$ZEGO_GRADLE"
+
+          grep -nE 'compileSdkVersion' "$ZEGO_GRADLE"
           grep -qE 'compileSdkVersion[[:space:]]+36' "$ZEGO_GRADLE"
-          grep -q 'com.android.tools.build:gradle:9.0.1' "$ZEGO_GRADLE"
-          grep -nE 'compileSdkVersion|com.android.tools.build:gradle' "$ZEGO_GRADLE"
 
       - name: Analyze
         run: flutter analyze
