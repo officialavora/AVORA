@@ -192,65 +192,156 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const Spacer(),
-              const AvoraLogo(size: 110),
-              const SizedBox(height: 22),
-              const Text(
-                'Welcome to AVORA',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 31, fontWeight: FontWeight.w800),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.topRight,
+                radius: 1.35,
+                colors: [
+                  Color(0xFF3B176B),
+                  Color(0xFF130B26),
+                  Color(0xFF05040A),
+                ],
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Meet, talk, create rooms and build your community.',
-                textAlign: TextAlign.center,
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SignupScreen()),
-                    );
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    child: Text('Create account'),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => LoginScreen(
-                              onDemoLogin: () => _openHome(context))),
-                    );
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    child: Text('Log in'),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Social sign-in will be connected after Firebase Auth setup.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.white60),
-              ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            top: -90,
+            right: -70,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFB55CFF).withValues(alpha: 0.10),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x557C4DFF),
+                    blurRadius: 100,
+                    spreadRadius: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+              child: Column(
+                children: [
+                  const Spacer(flex: 2),
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeOutBack,
+                    tween: Tween(begin: 0.78, end: 1),
+                    builder: (context, value, child) =>
+                        Transform.scale(scale: value, child: child),
+                    child: const AvoraLogo(size: 112),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'AVORA',
+                    style: TextStyle(
+                      fontSize: 38,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'VOICE • CONNECT • CELEBRATE',
+                    style: TextStyle(
+                      color: Color(0xFFD8B86A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Your stage. Your people. Your world.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const Spacer(flex: 3),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.13),
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x66000000),
+                          blurRadius: 30,
+                          offset: Offset(0, 16),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Welcome to AVORA',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SignupScreen(),
+                                ),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 15),
+                              child: Text('Create AVORA account'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => LoginScreen(
+                                    onDemoLogin: () => _openHome(context),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 15),
+                              child: Text('Log in with Google or Email'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'By continuing, you agree to AVORA Terms and Privacy Policy.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: Colors.white54),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -591,16 +682,52 @@ class _SignupScreenState extends State<SignupScreen> {
 
                 await result.user?.updateDisplayName(displayName.text.trim());
 
+                final account = await ensureAvoraAccount();
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(result.user!.uid)
+                    .set({
+                  'displayName': displayName.text.trim(),
+                  'gender': gender,
+                  'country': country.text.trim(),
+                  'invitationCode': invite.text.trim().isEmpty
+                      ? null
+                      : invite.text.trim(),
+                  'dateOfBirth': dob.text.trim().isEmpty ? null : dob.text.trim(),
+                  'bio': bio.text.trim().isEmpty ? null : bio.text.trim(),
+                  'profileSetupComplete': true,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                  'originalAvoraId': account['originalAvoraId'],
+                }, SetOptions(merge: true));
+
                 if (!context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const MainShell()),
                   (_) => false,
                 );
-              } on FirebaseAuthException catch (e) {
+              } on FirebaseAuthException catch (error) {
+                if (!context.mounted) return;
+                final message = switch (error.code) {
+                  'email-already-in-use' =>
+                    'This email already has an AVORA account. Please log in.',
+                  'invalid-email' =>
+                    'Please enter a valid email address.',
+                  'weak-password' =>
+                    'Choose a stronger password with at least 6 characters.',
+                  _ =>
+                    'AVORA could not create the account. Please try again.',
+                };
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message)),
+                );
+              } catch (_) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(e.message ?? 'Account creation failed')),
+                  const SnackBar(
+                    content: Text(
+                      'Your account was created, but the profile could not be saved. Please retry.',
+                    ),
+                  ),
                 );
               }
             },
