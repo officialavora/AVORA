@@ -27,6 +27,12 @@ void main() {
     );
 
     expect(find.text('AVORA Test Room'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('voice-seat-9')),
+      240,
+      scrollable: find.byKey(const Key('voice-room-seats')),
+    );
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('voice-seat-9')), findsOneWidget);
     expect(find.text('Mic off'), findsOneWidget);
 
