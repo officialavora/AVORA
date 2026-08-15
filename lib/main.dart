@@ -1212,26 +1212,81 @@ class RoomsPage extends StatelessWidget {
         icon: const Icon(Icons.add),
         label: const Text('Create room'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: const [
-          _RoomCard(name: 'Welcome to AVORA', themeName: 'Aurora', members: 12),
-          _RoomCard(name: 'Music & Friends', themeName: 'Night', members: 7),
-        ],
-      ),
+      body: Firebase.apps.isEmpty || FirebaseAuth.instance.currentUser == null
+          ? const _RoomFallback()
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('rooms')
+                  .where('active', isEqualTo: true)
+                  .limit(50)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const _RoomFallback(
+                    message: 'Live rooms could not refresh. Pull back and retry.',
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final rooms = snapshot.data!.docs;
+                if (rooms.isEmpty) {
+                  return const _RoomFallback(
+                    message: 'No live rooms yet. Start the first room.',
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: rooms.length,
+                  itemBuilder: (context, index) {
+                    final room = rooms[index];
+                    final data = room.data();
+                    return _RoomCard(
+                      roomId: room.id,
+                      name: (data['name'] ?? 'AVORA Room').toString(),
+                      themeName: (data['theme'] ?? 'Aurora').toString(),
+                      members: (data['memberCount'] as num?)?.toInt() ?? 1,
+                      seatCount: (data['seatCount'] as num?)?.toInt() ?? 10,
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }
 
+class _RoomFallback extends StatelessWidget {
+  final String? message;
+  const _RoomFallback({this.message});
+
+  @override
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (message != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(message!, style: const TextStyle(color: Colors.white70)),
+            ),
+          const _RoomCard(name: 'Welcome to AVORA', themeName: 'Aurora', members: 1),
+        ],
+      );
+}
+
 class _RoomCard extends StatelessWidget {
+  final String? roomId;
   final String name;
   final String themeName;
   final int members;
+  final int seatCount;
 
   const _RoomCard({
+    this.roomId,
     required this.name,
     required this.themeName,
     required this.members,
+    this.seatCount = 10,
   });
 
   @override
@@ -1247,7 +1302,8 @@ class _RoomCard extends StatelessWidget {
             builder: (_) => VoiceRoomScreen(
               roomName: name,
               themeName: themeName,
-              seatCount: 10,
+              seatCount: seatCount,
+              roomId: roomId,
             ),
           ),
         ),
@@ -1268,6 +1324,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
   String themeName = 'Aurora';
   String privacy = 'Public';
   int seats = 10;
+  bool creating = false;
 
   @override
   void dispose() {
@@ -1275,7 +1332,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
     super.dispose();
   }
 
-  void createRoom() {
+  Future<void> createRoom() async {
     final roomName = roomNameController.text.trim();
     if (roomName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1284,9 +1341,40 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
       return;
     }
 
+    if (creating) return;
+    setState(() => creating = true);
+    String? roomId;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (Firebase.apps.isNotEmpty && user != null) {
+        final account = await ensureAvoraAccount();
+        final room = await FirebaseFirestore.instance.collection('rooms').add({
+          'name': roomName,
+          'theme': themeName,
+          'privacy': privacy,
+          'seatCount': seats,
+          'memberCount': 1,
+          'active': true,
+          'ownerUid': user.uid,
+          'ownerAvoraId': account['originalAvoraId'],
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        roomId = room.id;
+      }
+    } on FirebaseException {
+      if (!mounted) return;
+      setState(() => creating = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Room could not be saved. Check your connection and retry.'),
+      ));
+      return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => VoiceRoomScreen(
+          roomId: roomId,
           roomName: roomName,
           themeName: themeName,
           seatCount: seats,
@@ -1346,8 +1434,8 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
           const SizedBox(height: 20),
           FilledButton(
             key: const Key('create-room-submit'),
-            onPressed: createRoom,
-            child: const Text('Create room'),
+            onPressed: creating ? null : createRoom,
+            child: Text(creating ? 'Creating room…' : 'Create room'),
           ),
         ],
       ),
@@ -1362,12 +1450,14 @@ class VoiceRoomScreen extends StatefulWidget {
     required this.themeName,
     required this.seatCount,
     this.isOwner = false,
+    this.roomId,
   });
 
   final String roomName;
   final String themeName;
   final int seatCount;
   final bool isOwner;
+  final String? roomId;
 
   @override
   State<VoiceRoomScreen> createState() => _VoiceRoomScreenState();
