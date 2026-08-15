@@ -316,6 +316,17 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
+                  const SizedBox(height: 18),
+                  const Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _WelcomeFeature(icon: Icons.mic_rounded, label: 'Voice rooms'),
+                      _WelcomeFeature(icon: Icons.card_giftcard_rounded, label: 'Gifts'),
+                      _WelcomeFeature(icon: Icons.celebration_rounded, label: 'Fun together'),
+                    ],
+                  ),
                   const Spacer(flex: 3),
                   Container(
                     padding: const EdgeInsets.all(18),
@@ -395,6 +406,31 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       ),
     );
   }
+}
+
+class _WelcomeFeature extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _WelcomeFeature({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: const Color(0xFFD8B86A)),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
 }
 
 class _WelcomeSpark extends StatelessWidget {
@@ -1521,7 +1557,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
       if (!mounted) return;
       setState(() => creating = false);
       final message = error.code == 'permission-denied'
-          ? 'Room creation is waiting for secure backend permission.'
+          ? 'AVORA could not create this room yet. Please retry in a moment.'
           : 'Room could not be saved. Check your connection and retry.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       return;
@@ -2038,7 +2074,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
       if (!mounted) return;
       setState(() {
         error = firebaseError.code == 'permission-denied'
-            ? 'User search is waiting for secure backend permission.'
+            ? 'AVORA could not complete this search yet. Please retry in a moment.'
             : 'Search could not be completed. Please retry.';
       });
     } finally {
