@@ -1,5 +1,7 @@
 rules_version = '2';
 
+// AVORA rules are deployed automatically from the authenticated GitHub workflow.
+
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
