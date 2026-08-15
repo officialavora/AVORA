@@ -2234,7 +2234,7 @@ class RoomActivityStrip extends StatelessWidget {
             .collection('rooms')
             .doc(id)
             .collection('messages')
-            .orderBy('sentAt', descending: true)
+            .orderBy('createdAt', descending: true)
             .limit(2)
             .snapshots(),
         builder: (context, snapshot) {
