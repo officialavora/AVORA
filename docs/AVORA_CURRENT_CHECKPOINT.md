@@ -14,7 +14,7 @@ Do not ask the owner to repeat project history already recorded here.
 - Android first; architecture must remain iOS-compatible
 - Active branch: work/auth-001-google-signin
 - Active pull request: #1
-- Current app version: 0.1.0+12
+- Current app version: 0.1.0+13
 
 ## Permanent delivery rules
 
@@ -62,22 +62,24 @@ Do not ask the owner to repeat project history already recorded here.
 
 ## Current build status
 
-- Active batch: 12
-- Latest repair commit: a7f072b7b9e40bc4e8828c597e6ede6d15c3a5aa
-- APK workflow run #49: SUCCESS
-  https://github.com/officialavora/AVORA/actions/runs/31881551020
-- AAB workflow run #25: SUCCESS
-  https://github.com/officialavora/AVORA/actions/runs/31881551062
+- Active batch: 13
+- Latest feature commit: 63934e156f9d42d41387e0116a29f1d86d26048d
+- APK workflow run #50: SUCCESS
+  https://github.com/officialavora/AVORA/actions/runs/31882408764
+- AAB workflow run #26: SUCCESS
+  https://github.com/officialavora/AVORA/actions/runs/31882408746
 - Build 9 device evidence passed cinematic Welcome, Google login, and same permanent ID 10000003.
 - Build 10 added password visibility, autofill/keyboard UX, automated tests, and parallel APK/AAB release verification.
 - Build 11 adds functional room-card navigation, validated room creation, a cinematic room surface, 10-seat UI, and testable mic/speaker states.
 - Build 11 tests, analyze, APK, and AAB passed. Real-device verification remains required.
 - Build 12 replaces free-text country entry with a device-region suggestion and user-selectable ISO country, and replaces the Inbox placeholder with Notifications/System/Support/Chats sections plus a support request form.
 - Build 12 tests, analyze, APK, and AAB passed. Real-device verification remains required.
+- Build 13 adds the roadmap five-tab shell (Home/Discover/Create/Inbox/Me), functional Home actions, a Create hub, and removes starter/developer-facing Home text.
+- Build 13 tests, analyze, APK, and AAB passed. Real-device verification remains required.
 
 ## AUTH-001 remaining PASS gates
 
-1. Download/install version +12.
+1. Download/install version +13.
 2. Verify login/signup password visibility.
 3. Google login on the signed build.
 4. Same Google account returns the same permanent AVORA ID.
@@ -86,6 +88,7 @@ Do not ask the owner to repeat project history already recorded here.
 7. No raw technical error reaches the user.
 8. Verify room card opens, room creation validates a name, and the new room screen renders/operates without a crash.
 9. Verify country suggestion/change and all four Inbox sections.
+10. Verify Home/Discover/Create/Inbox/Me navigation and Create hub.
 
 AUTH-001 must not be marked DONE before every gate passes.
 
