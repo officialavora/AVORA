@@ -72,6 +72,15 @@ class AvoraGoogleSignInAdapter {
 
   bool get initialized => _initialized;
 
+  Future<void> signOut() async {
+    try {
+      await googleSignIn.signOut();
+    } catch (_) {
+      // Firebase sign-out remains authoritative. Provider cleanup is best effort
+      // so a platform-specific Google error never traps the user in AVORA.
+    }
+  }
+
   Future<void> initialize() async {
     if (_initialized) {
       return;
