@@ -17,6 +17,7 @@ void main() {
 
     expect(find.byKey(const Key('room-reconnect')), findsOneWidget);
     expect(find.byKey(const Key('voice-room-chat')), findsOneWidget);
+    expect(find.byKey(const Key('room-activity-strip')), findsOneWidget);
     expect(find.text('Speaker'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('voice-seat-1')));
