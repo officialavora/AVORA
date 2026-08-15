@@ -2087,9 +2087,9 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
-                      mainAxisSpacing: 18,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.78,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 0.92,
                     ),
                     itemCount: widget.seatCount,
                     itemBuilder: (context, index) {
@@ -2102,8 +2102,8 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                           children: [
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
-                              width: 58,
-                              height: 58,
+                              width: 54,
+                              height: 54,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: active
@@ -2141,6 +2141,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                     },
                   ),
                 ),
+                RoomActivityStrip(roomId: widget.roomId, accent: accent),
                 Container(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   decoration: BoxDecoration(
@@ -2183,6 +2184,82 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+class RoomActivityStrip extends StatelessWidget {
+  const RoomActivityStrip({
+    super.key,
+    required this.roomId,
+    required this.accent,
+  });
+
+  final String? roomId;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = roomId;
+    if (id == null || Firebase.apps.isEmpty) {
+      return Container(
+        height: 76,
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.28),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Text(
+          'Room activity • messages, entries and gifts appear here',
+          style: TextStyle(color: Colors.white60, fontSize: 12),
+        ),
+      );
+    }
+    return Container(
+      height: 76,
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('rooms')
+            .doc(id)
+            .collection('messages')
+            .orderBy('sentAt', descending: true)
+            .limit(2)
+            .snapshots(),
+        builder: (context, snapshot) {
+          final messages = snapshot.data?.docs ?? const [];
+          if (messages.isEmpty) {
+            return const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Room activity • messages, entries and gifts appear here',
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: messages.reversed.map((document) {
+              final data = document.data();
+              return Text(
+                '${data['senderName'] ?? 'AVORA User'}: ${data['text'] ?? ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.white70),
+              );
+            }).toList(),
+          );
+        },
       ),
     );
   }
