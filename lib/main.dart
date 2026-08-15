@@ -1658,7 +1658,9 @@ class VoiceRoomScreen extends StatefulWidget {
 class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
   bool microphoneEnabled = false;
   bool speakerEnabled = true;
-  int selectedSeat = 0;
+  bool joining = false;
+  bool joined = false;
+  late int selectedSeat;
 
   Color get accent => switch (widget.themeName) {
         'Ocean' => const Color(0xFF27D7FF),
@@ -1666,11 +1668,183 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
         _ => const Color(0xFFFFC861),
       };
 
-  void showComingNext(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature is ready for the realtime service connection.'),
+  @override
+  void initState() {
+    super.initState();
+    selectedSeat = widget.isOwner ? 0 : -1;
+    unawaited(_joinRoom());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_leaveRoom());
+    super.dispose();
+  }
+
+  Future<void> _joinRoom() async {
+    final roomId = widget.roomId;
+    final user = FirebaseAuth.instance.currentUser;
+    if (roomId == null || user == null || Firebase.apps.isEmpty) {
+      if (mounted) setState(() => joined = true);
+      return;
+    }
+    if (mounted) setState(() => joining = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('members')
+          .doc(user.uid)
+          .set({
+        'userUid': user.uid,
+        'displayName': user.displayName ?? 'AVORA User',
+        'photoUrl': user.photoURL,
+        'seatIndex': selectedSeat,
+        'joinedAt': FieldValue.serverTimestamp(),
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      if (mounted) setState(() => joined = true);
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AVORA could not join the room. Tap reconnect.')),
+      );
+    } finally {
+      if (mounted) setState(() => joining = false);
+    }
+  }
+
+  Future<void> _leaveRoom() async {
+    final roomId = widget.roomId;
+    final user = FirebaseAuth.instance.currentUser;
+    if (roomId == null || user == null || Firebase.apps.isEmpty) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('members')
+          .doc(user.uid)
+          .delete();
+    } catch (_) {
+      // Presence expires through the backend recovery path when a device drops.
+    }
+  }
+
+  Future<void> _selectSeat(int index) async {
+    if (index == 0 && !widget.isOwner) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('The host seat is reserved for the room owner.')),
+      );
+      return;
+    }
+    final nextSeat = selectedSeat == index && !widget.isOwner ? -1 : index;
+    setState(() => selectedSeat = nextSeat);
+    final roomId = widget.roomId;
+    final user = FirebaseAuth.instance.currentUser;
+    if (roomId == null || user == null || Firebase.apps.isEmpty) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('members')
+          .doc(user.uid)
+          .set({
+        'userUid': user.uid,
+        'seatIndex': nextSeat,
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seat could not be updated. Please retry.')),
+      );
+    }
+  }
+
+  void _openChat() {
+    if (widget.roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Create or join a saved room to use room chat.')),
+      );
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF100C1A),
+      builder: (_) => RoomChatSheet(roomId: widget.roomId!),
+    );
+  }
+
+  Future<void> _openRoomControls() async {
+    if (!widget.isOwner || widget.roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Room controls are available to the room owner.')),
+      );
+      return;
+    }
+    final endRoom = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: const Color(0xFF100C1A),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const ListTile(
+              leading: Icon(Icons.admin_panel_settings_outlined),
+              title: Text('Owner room controls'),
+              subtitle: Text('Moderation and seat controls will expand here.'),
+            ),
+            ListTile(
+              key: const Key('end-room-action'),
+              leading: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+              title: const Text('End room'),
+              onTap: () => Navigator.pop(context, true),
+            ),
+          ]),
+        ),
       ),
+    );
+    if (endRoom != true || !mounted) return;
+    try {
+      await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+        'active': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) Navigator.of(context).pop();
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Room could not be ended. Please retry.')),
+      );
+    }
+  }
+
+  Widget _presenceLabel() {
+    final roomId = widget.roomId;
+    if (roomId == null || Firebase.apps.isEmpty) {
+      return Text(joined ? 'Demo room • connected' : 'Connecting…');
+    }
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(roomId)
+          .collection('members')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length;
+        return Text(
+          joining
+              ? 'Connecting…'
+              : joined
+                  ? '${count ?? 1} in room • connected'
+                  : 'Connection interrupted • tap reconnect',
+          style: TextStyle(
+            color: joined ? Colors.greenAccent : Colors.amberAccent,
+            fontSize: 12,
+          ),
+        );
+      },
     );
   }
 
@@ -1709,20 +1883,21 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                               widget.roomName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                             ),
-                            Text(
-                              '${widget.themeName} • ${widget.isOwner ? 'Owner room' : 'Voice room'}',
-                              style: const TextStyle(color: Colors.white60, fontSize: 12),
-                            ),
+                            _presenceLabel(),
                           ],
                         ),
                       ),
                       IconButton(
-                        onPressed: () => showComingNext('Room settings'),
+                        key: const Key('room-reconnect'),
+                        tooltip: 'Reconnect',
+                        onPressed: joining ? null : _joinRoom,
+                        icon: Icon(joined ? Icons.cloud_done_outlined : Icons.sync),
+                      ),
+                      IconButton(
+                        key: const Key('room-owner-controls'),
+                        onPressed: _openRoomControls,
                         icon: const Icon(Icons.more_horiz),
                       ),
                     ],
@@ -1760,7 +1935,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                       return InkWell(
                         key: Key('voice-seat-$index'),
                         borderRadius: BorderRadius.circular(22),
-                        onTap: () => setState(() => selectedSeat = index),
+                        onTap: () => _selectSeat(index),
                         child: Column(
                           children: [
                             AnimatedContainer(
@@ -1780,12 +1955,24 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                                     ? [BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 18)]
                                     : null,
                               ),
-                              child: Icon(index == 0 ? Icons.workspace_premium : Icons.add),
+                              child: Icon(
+                                index == 0
+                                    ? Icons.workspace_premium
+                                    : active
+                                        ? Icons.person
+                                        : Icons.add,
+                              ),
                             ),
                             const SizedBox(height: 7),
-                            Text(index == 0 ? 'Host' : 'Seat ${index + 1}',
-                                maxLines: 1,
-                                style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                            Text(
+                              index == 0
+                                  ? 'Host'
+                                  : active
+                                      ? 'You'
+                                      : 'Seat ${index + 1}',
+                              maxLines: 1,
+                              style: const TextStyle(fontSize: 11, color: Colors.white70),
+                            ),
                           ],
                         ),
                       );
@@ -1802,9 +1989,10 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _RoomControl(
+                        key: const Key('voice-room-chat'),
                         icon: Icons.chat_bubble_outline,
                         label: 'Chat',
-                        onTap: () => showComingNext('Room chat'),
+                        onTap: _openChat,
                       ),
                       _RoomControl(
                         icon: microphoneEnabled ? Icons.mic : Icons.mic_off,
@@ -1815,14 +2003,16 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                       ),
                       _RoomControl(
                         icon: speakerEnabled ? Icons.volume_up : Icons.volume_off,
-                        label: 'Speaker',
+                        label: speakerEnabled ? 'Speaker' : 'Muted',
                         active: speakerEnabled,
                         onTap: () => setState(() => speakerEnabled = !speakerEnabled),
                       ),
                       _RoomControl(
                         icon: Icons.card_giftcard,
                         label: 'Gifts',
-                        onTap: () => showComingNext('Test gifts'),
+                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Test gifts are in the next economy batch.')),
+                        ),
                       ),
                     ],
                   ),
@@ -1834,6 +2024,133 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
       ),
     );
   }
+}
+
+class RoomChatSheet extends StatefulWidget {
+  const RoomChatSheet({super.key, required this.roomId});
+  final String roomId;
+
+  @override
+  State<RoomChatSheet> createState() => _RoomChatSheetState();
+}
+
+class _RoomChatSheetState extends State<RoomChatSheet> {
+  final message = TextEditingController();
+  bool sending = false;
+
+  @override
+  void dispose() {
+    message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = message.text.trim();
+    final user = FirebaseAuth.instance.currentUser;
+    if (text.isEmpty || user == null || sending) return;
+    setState(() => sending = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('messages')
+          .add({
+        'senderUid': user.uid,
+        'senderName': user.displayName ?? 'AVORA User',
+        'text': text,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      message.clear();
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message could not be sent. Please retry.')),
+      );
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 14,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 14,
+        ),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.62,
+          child: Column(
+            children: [
+              const Text('Room chat', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('rooms')
+                      .doc(widget.roomId)
+                      .collection('messages')
+                      .orderBy('createdAt', descending: true)
+                      .limit(50)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return const Center(child: Text('Chat could not refresh.'));
+                    }
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final messages = snapshot.data!.docs;
+                    if (messages.isEmpty) {
+                      return const Center(child: Text('Start the conversation.'));
+                    }
+                    return ListView.builder(
+                      reverse: true,
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final data = messages[index].data();
+                        return ListTile(
+                          dense: true,
+                          title: Text((data['senderName'] ?? 'AVORA User').toString()),
+                          subtitle: Text((data['text'] ?? '').toString()),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('room-chat-message'),
+                      controller: message,
+                      maxLength: 300,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: const InputDecoration(
+                        hintText: 'Message the room',
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                  IconButton.filled(
+                    key: const Key('room-chat-send'),
+                    onPressed: sending ? null : _send,
+                    icon: sending
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _RoomControl extends StatelessWidget {
