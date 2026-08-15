@@ -1171,6 +1171,16 @@ class _SignupScreenState extends State<SignupScreen> {
                   'updatedAt': FieldValue.serverTimestamp(),
                   'originalAvoraId': account['originalAvoraId'],
                 }, SetOptions(merge: true));
+                await FirebaseFirestore.instance
+                    .collection('publicProfiles')
+                    .doc(result.user!.uid)
+                    .set({
+                  'displayName': displayName.text.trim(),
+                  'country': selectedCountryName,
+                  'countryCode': selectedCountryCode,
+                  'bio': bio.text.trim().isEmpty ? null : bio.text.trim(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
 
                 if (!context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
