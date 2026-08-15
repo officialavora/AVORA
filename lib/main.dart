@@ -414,6 +414,8 @@ class _WelcomeSpark extends StatelessWidget {
         ),
       );
 
+}
+
 class LoginScreen extends StatefulWidget {
   final VoidCallback onDemoLogin;
 
