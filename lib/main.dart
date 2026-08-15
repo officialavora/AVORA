@@ -703,15 +703,15 @@ class _SignupScreenState extends State<SignupScreen> {
     showCountryPicker(
       context: context,
       showPhoneCode: true,
-      countryListTheme: CountryListThemeData(
-        backgroundColor: const Color(0xFF100B1C),
-        textStyle: const TextStyle(color: Colors.white),
-        searchTextStyle: const TextStyle(color: Colors.white),
-        inputDecoration: const InputDecoration(
+      countryListTheme: const CountryListThemeData(
+        backgroundColor: Color(0xFF100B1C),
+        textStyle: TextStyle(color: Colors.white),
+        searchTextStyle: TextStyle(color: Colors.white),
+        inputDecoration: InputDecoration(
           labelText: 'Search every country',
           prefixIcon: Icon(Icons.search),
         ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       onSelect: (country) => setState(() {
         selectedCountryCode = country.countryCode;
