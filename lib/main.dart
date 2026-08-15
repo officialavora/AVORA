@@ -691,10 +691,11 @@ class _SignupScreenState extends State<SignupScreen> {
         break;
       }
     }
-    if (match == null) return;
+    final selected = match;
+    if (selected == null) return;
     setState(() {
-      selectedCountryCode = match.countryCode;
-      selectedCountryName = match.name;
+      selectedCountryCode = selected.countryCode;
+      selectedCountryName = selected.name;
     });
   }
 
