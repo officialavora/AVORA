@@ -1683,9 +1683,13 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
 
   Future<void> _joinRoom() async {
     final roomId = widget.roomId;
-    final user = FirebaseAuth.instance.currentUser;
-    if (roomId == null || user == null || Firebase.apps.isEmpty) {
+    if (roomId == null || Firebase.apps.isEmpty) {
       if (mounted) setState(() => joined = true);
+      return;
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => joined = false);
       return;
     }
     if (mounted) setState(() => joining = true);
@@ -1716,8 +1720,9 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
 
   Future<void> _leaveRoom() async {
     final roomId = widget.roomId;
+    if (roomId == null || Firebase.apps.isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
-    if (roomId == null || user == null || Firebase.apps.isEmpty) return;
+    if (user == null) return;
     try {
       await FirebaseFirestore.instance
           .collection('rooms')
@@ -1740,8 +1745,9 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
     final nextSeat = selectedSeat == index && !widget.isOwner ? -1 : index;
     setState(() => selectedSeat = nextSeat);
     final roomId = widget.roomId;
+    if (roomId == null || Firebase.apps.isEmpty) return;
     final user = FirebaseAuth.instance.currentUser;
-    if (roomId == null || user == null || Firebase.apps.isEmpty) return;
+    if (user == null) return;
     try {
       await FirebaseFirestore.instance
           .collection('rooms')
@@ -1777,7 +1783,8 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
   }
 
   Future<void> _openRoomControls() async {
-    if (!widget.isOwner || widget.roomId == null) {
+    final roomId = widget.roomId;
+    if (!widget.isOwner || roomId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Room controls are available to the room owner.')),
       );
@@ -1807,7 +1814,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
     );
     if (endRoom != true || !mounted) return;
     try {
-      await FirebaseFirestore.instance.collection('rooms').doc(widget.roomId).update({
+      await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
         'active': false,
         'updatedAt': FieldValue.serverTimestamp(),
       });
