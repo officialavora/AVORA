@@ -881,6 +881,7 @@ class _MainShellState extends State<MainShell> {
         final pages = <Widget>[
           const HomePage(),
           const RoomsPage(),
+          const CreateHubPage(),
           const MessagesPage(),
           ProfilePage(account: snapshot.data!),
         ];
@@ -899,17 +900,22 @@ class _MainShellState extends State<MainShell> {
               NavigationDestination(
                 icon: Icon(Icons.mic_none),
                 selectedIcon: Icon(Icons.mic),
-                label: 'Rooms',
+                label: 'Discover',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.add_circle_outline),
+                selectedIcon: Icon(Icons.add_circle),
+                label: 'Create',
               ),
               NavigationDestination(
                 icon: Icon(Icons.chat_bubble_outline),
                 selectedIcon: Icon(Icons.chat_bubble),
-                label: 'Messages',
+                label: 'Inbox',
               ),
               NavigationDestination(
                 icon: Icon(Icons.person_outline),
                 selectedIcon: Icon(Icons.person),
-                label: 'Profile',
+                label: 'Me',
               ),
             ],
           ),
@@ -934,29 +940,60 @@ class HomePage extends StatelessWidget {
           ],
         ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          IconButton(
+            tooltip: 'Search rooms',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RoomsPage()),
+            ),
+            icon: const Icon(Icons.search),
+          ),
+          IconButton(
+            tooltip: 'Inbox',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MessagesPage()),
+            ),
+            icon: const Icon(Icons.notifications_none),
+          ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          _HeroCard(),
-          SizedBox(height: 18),
-          Text('Discover',
+        children: [
+          const _HeroCard(),
+          const SizedBox(height: 18),
+          const SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Chip(label: Text('For You')),
+                SizedBox(width: 8),
+                Chip(label: Text('Following')),
+                SizedBox(width: 8),
+                Chip(label: Text('Trending')),
+                SizedBox(width: 8),
+                Chip(label: Text('New')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text('Discover',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           _FeatureTile(
               icon: Icons.mic,
               title: 'Voice Rooms',
-              subtitle: 'Join conversations and communities'),
-          _FeatureTile(
+              subtitle: 'Join conversations and communities',
+              onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RoomsPage()),
+                  )),
+          const _FeatureTile(
               icon: Icons.videocam,
               title: 'Live',
-              subtitle: 'Video and interactive live rooms — planned'),
-          _FeatureTile(
+              subtitle: 'Coming after the audio-first launch'),
+          const _FeatureTile(
               icon: Icons.card_giftcard,
               title: 'Rewards',
-              subtitle: 'Tasks, levels and rewards — planned'),
+              subtitle: 'Test rewards unlock in the economy batch'),
         ],
       ),
     );
@@ -982,9 +1019,9 @@ class _HeroCard extends StatelessWidget {
           Text('AVORA',
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
           SizedBox(height: 6),
-          Text('Your world. Your voice.'),
+          Text('Voice • Connect • Celebrate'),
           SizedBox(height: 30),
-          Text('Starter build v0.1'),
+          Text('Enter a room. Meet your people.'),
         ],
       ),
     );
@@ -995,21 +1032,83 @@ class _FeatureTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _FeatureTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: onTap,
         leading: CircleAvatar(child: Icon(icon)),
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+}
+
+class CreateHubPage extends StatelessWidget {
+  const CreateHubPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF3B176B), Color(0xFF151027)],
+              ),
+              border: Border.all(color: const Color(0x55D8B86A)),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.graphic_eq, size: 54, color: Color(0xFFD8B86A)),
+                SizedBox(height: 14),
+                Text('Start your AVORA room',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                SizedBox(height: 8),
+                Text('Choose a name, theme, privacy and mic-seat layout.',
+                    textAlign: TextAlign.center, style: TextStyle(color: Colors.white70)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            key: const Key('create-hub-voice-room'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CreateRoomScreen()),
+            ),
+            icon: const Icon(Icons.mic),
+            label: const Text('Start Voice Room'),
+          ),
+          const SizedBox(height: 10),
+          const ListTile(
+            enabled: false,
+            leading: Icon(Icons.videocam_outlined),
+            title: Text('Start Live'),
+            subtitle: Text('Available after the audio-first launch'),
+          ),
+          const ListTile(
+            enabled: false,
+            leading: Icon(Icons.sports_esports_outlined),
+            title: Text('Start Game'),
+            subtitle: Text('Games will be enabled through feature flags'),
+          ),
+        ],
       ),
     );
   }
