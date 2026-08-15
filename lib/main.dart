@@ -596,20 +596,44 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   String gender = 'Prefer not to say';
+  String selectedCountryCode = 'US';
   bool passwordVisible = false;
 
   final displayName = TextEditingController();
-  final country = TextEditingController();
   final invite = TextEditingController();
   final dob = TextEditingController();
   final bio = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
 
+  static const countries = <String, String>{
+    'SA': 'Saudi Arabia',
+    'IN': 'India',
+    'PK': 'Pakistan',
+    'BD': 'Bangladesh',
+    'NP': 'Nepal',
+    'AE': 'United Arab Emirates',
+    'QA': 'Qatar',
+    'KW': 'Kuwait',
+    'BH': 'Bahrain',
+    'OM': 'Oman',
+    'PH': 'Philippines',
+    'GB': 'United Kingdom',
+    'US': 'United States',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    final suggested = WidgetsBinding.instance.platformDispatcher.locale.countryCode;
+    if (suggested != null && countries.containsKey(suggested.toUpperCase())) {
+      selectedCountryCode = suggested.toUpperCase();
+    }
+  }
+
   @override
   void dispose() {
     displayName.dispose();
-    country.dispose();
     invite.dispose();
     dob.dispose();
     bio.dispose();
@@ -644,9 +668,26 @@ class _SignupScreenState extends State<SignupScreen> {
             onChanged: (v) => setState(() => gender = v ?? gender),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: country,
-            decoration: const InputDecoration(labelText: 'Country *'),
+          DropdownButtonFormField<String>(
+            key: const Key('signup-country'),
+            initialValue: selectedCountryCode,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Country *',
+              helperText: 'Suggested from your device region • You can change it',
+              prefixIcon: Icon(Icons.public),
+            ),
+            items: countries.entries
+                .map(
+                  (entry) => DropdownMenuItem(
+                    value: entry.key,
+                    child: Text('${entry.value} (${entry.key})'),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value != null) setState(() => selectedCountryCode = value);
+            },
           ),
           const SizedBox(height: 12),
           TextField(
@@ -701,13 +742,12 @@ class _SignupScreenState extends State<SignupScreen> {
           FilledButton(
             onPressed: () async {
               if (displayName.text.trim().isEmpty ||
-                  country.text.trim().isEmpty ||
                   email.text.trim().isEmpty ||
                   password.text.length < 6) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
-                        'Name, country, email and 6+ digit password required'),
+                        'Name, country, email and 6+ character password required'),
                   ),
                 );
                 return;
@@ -729,7 +769,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     .set({
                   'displayName': displayName.text.trim(),
                   'gender': gender,
-                  'country': country.text.trim(),
+                  'country': countries[selectedCountryCode],
+                  'countryCode': selectedCountryCode,
                   'invitationCode': invite.text.trim().isEmpty
                       ? null
                       : invite.text.trim(),
@@ -1366,15 +1407,161 @@ class _RoomControl extends StatelessWidget {
   }
 }
 
-class MessagesPage extends StatelessWidget {
+class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
+
+  @override
+  State<MessagesPage> createState() => _MessagesPageState();
+}
+
+class _MessagesPageState extends State<MessagesPage> {
+  int section = 0;
+
+  static const sections = <({IconData icon, String label, String title, String body})>[
+    (icon: Icons.notifications_none, label: 'Notifications', title: 'Your activity', body: 'Follows, gifts, room invites and rewards will appear here.'),
+    (icon: Icons.campaign_outlined, label: 'System', title: 'System notices', body: 'Security, policy, maintenance and official AVORA notices.'),
+    (icon: Icons.support_agent, label: 'Support', title: 'Contact AVORA', body: 'Report a problem or request help from the AVORA support team.'),
+    (icon: Icons.chat_bubble_outline, label: 'Chats', title: 'Messages', body: 'Friend conversations and message requests will appear here.'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = sections[section];
+    return Scaffold(
+      appBar: AppBar(title: const Text('Inbox')),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 88,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              scrollDirection: Axis.horizontal,
+              itemCount: sections.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final item = sections[index];
+                return ChoiceChip(
+                  key: Key('inbox-section-$index'),
+                  selected: section == index,
+                  onSelected: (_) => setState(() => section = index),
+                  avatar: Icon(item.icon, size: 18),
+                  label: Text(item.label),
+                );
+              },
+            ),
+          ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _InboxSection(
+                key: ValueKey(section),
+                icon: selected.icon,
+                title: selected.title,
+                body: selected.body,
+                support: section == 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InboxSection extends StatelessWidget {
+  const _InboxSection({super.key, required this.icon, required this.title, required this.body, required this.support});
+  final IconData icon;
+  final String title;
+  final String body;
+  final bool support;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
+      children: [
+        Icon(icon, size: 54, color: const Color(0xFFD8B86A)),
+        const SizedBox(height: 16),
+        Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        Text(body, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60)),
+        if (support) ...[
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            key: const Key('contact-avora'),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ContactAvoraScreen())),
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Create support request'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class ContactAvoraScreen extends StatefulWidget {
+  const ContactAvoraScreen({super.key});
+  @override
+  State<ContactAvoraScreen> createState() => _ContactAvoraScreenState();
+}
+
+class _ContactAvoraScreenState extends State<ContactAvoraScreen> {
+  final subject = TextEditingController();
+  final message = TextEditingController();
+  bool sending = false;
+
+  @override
+  void dispose() {
+    subject.dispose();
+    message.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (subject.text.trim().isEmpty || message.text.trim().length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a subject and at least 10 message characters.')));
+      return;
+    }
+    setState(() => sending = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw StateError('not_signed_in');
+      await FirebaseFirestore.instance.collection('supportTickets').add({
+        'userUid': user.uid,
+        'subject': subject.text.trim(),
+        'message': message.text.trim(),
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Support request sent successfully.')));
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send your request. Please try again.')));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
-      body: const Center(
-        child: Text('Notifications • System Notice • Contact Us • Chats'),
+      appBar: AppBar(title: const Text('Contact AVORA')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          TextField(key: const Key('support-subject'), controller: subject, textInputAction: TextInputAction.next, decoration: const InputDecoration(labelText: 'Subject')),
+          const SizedBox(height: 12),
+          TextField(key: const Key('support-message'), controller: message, minLines: 5, maxLines: 8, decoration: const InputDecoration(labelText: 'How can we help?')),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            key: const Key('support-submit'),
+            onPressed: sending ? null : submit,
+            icon: sending ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
+            label: Text(sending ? 'Sending…' : 'Send request'),
+          ),
+        ],
       ),
     );
   }
