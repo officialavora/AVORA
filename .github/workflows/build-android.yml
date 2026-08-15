@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - work/auth-001-google-signin
+    paths-ignore:
+      - "docs/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -60,6 +66,9 @@ jobs:
 
           grep -nE 'compileSdkVersion' "$ZEGO_GRADLE"
           grep -qE 'compileSdkVersion[[:space:]]+36' "$ZEGO_GRADLE"
+
+      - name: Run tests
+        run: flutter test
 
       - name: Analyze
         run: flutter analyze

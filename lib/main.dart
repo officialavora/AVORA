@@ -362,6 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final password = TextEditingController();
 
   bool googleBusy = false;
+  bool passwordVisible = false;
   String? authProgress;
 
   @override
@@ -487,13 +488,31 @@ class _LoginScreenState extends State<LoginScreen> {
           TextField(
             controller: email,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+            autocorrect: false,
             decoration: const InputDecoration(labelText: 'Email'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: password,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Password'),
+            obscureText: !passwordVisible,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
+            enableSuggestions: false,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              suffixIcon: IconButton(
+                tooltip: passwordVisible ? 'Hide password' : 'Show password',
+                onPressed: () => setState(
+                  () => passwordVisible = !passwordVisible,
+                ),
+                icon: Icon(
+                  passwordVisible ? Icons.visibility_off : Icons.visibility,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           FilledButton(
@@ -577,6 +596,7 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   String gender = 'Prefer not to say';
+  bool passwordVisible = false;
 
   final displayName = TextEditingController();
   final country = TextEditingController();
@@ -650,13 +670,32 @@ class _SignupScreenState extends State<SignupScreen> {
           TextField(
             controller: email,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.newUsername],
+            autocorrect: false,
             decoration: const InputDecoration(labelText: 'Email *'),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: password,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Password *'),
+            obscureText: !passwordVisible,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.newPassword],
+            enableSuggestions: false,
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: 'Password *',
+              helperText: 'Minimum 6 characters',
+              suffixIcon: IconButton(
+                tooltip: passwordVisible ? 'Hide password' : 'Show password',
+                onPressed: () => setState(
+                  () => passwordVisible = !passwordVisible,
+                ),
+                icon: Icon(
+                  passwordVisible ? Icons.visibility_off : Icons.visibility,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           FilledButton(
