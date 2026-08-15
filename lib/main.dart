@@ -738,6 +738,42 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
+
+class PolicyDocumentScreen extends StatelessWidget {
+  const PolicyDocumentScreen({
+    super.key,
+    required this.title,
+    required this.body,
+  });
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const Text(
+              'AVORA Demo Policy • Version 2026-08-15',
+              style: TextStyle(
+                color: Color(0xFFD8B86A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(body, style: const TextStyle(fontSize: 16, height: 1.55)),
+            const SizedBox(height: 20),
+            const Text(
+              'Production release policies will include the final legal, regional, safety, payment, deletion, and store disclosures.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      );
+}
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -751,6 +787,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String selectedCountryName = 'United States';
   bool passwordVisible = false;
   bool signupBusy = false;
+  bool acceptedPolicies = false;
   String? signupProgress;
 
   final displayName = TextEditingController();
@@ -812,6 +849,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _signupWithGoogle() async {
     if (signupBusy) return;
+    if (!acceptedPolicies) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Accept the AVORA Terms and Privacy Policy to continue.')),
+      );
+      return;
+    }
     setState(() {
       signupBusy = true;
       signupProgress = 'Connecting to Google';
@@ -832,6 +875,13 @@ class _SignupScreenState extends State<SignupScreen> {
       }
       _setSignupProgress('Google account verified');
       await ensureAvoraAccount(onProgress: _setSignupProgress);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'policyVersion': 'demo-2026-08-15',
+          'policyAcceptedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
       _setSignupProgress('Account ready');
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -893,6 +943,46 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 14),
           ],
+          CheckboxListTile(
+            key: const Key('signup-policy-consent'),
+            contentPadding: EdgeInsets.zero,
+            value: acceptedPolicies,
+            onChanged: signupBusy
+                ? null
+                : (value) => setState(() => acceptedPolicies = value ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('I agree to the '),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PolicyDocumentScreen(
+                        title: 'AVORA Terms of Service',
+                        body: 'Use AVORA respectfully. Do not abuse, harass, impersonate, defraud, or misuse rooms, accounts, gifts, or test currency. Test coins have no cash value and cannot be withdrawn. AVORA may moderate unsafe activity and protect users, rooms, and the platform.',
+                      ),
+                    ),
+                  ),
+                  child: const Text('Terms'),
+                ),
+                const Text('and'),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const PolicyDocumentScreen(
+                        title: 'AVORA Privacy Policy',
+                        body: 'AVORA uses account, profile, device, room, safety, and transaction information to operate and secure the service. Passwords, OTPs, and authentication tokens are never shown to administrators. Demo and production data remain separated.',
+                      ),
+                    ),
+                  ),
+                  child: const Text('Privacy Policy'),
+                ),
+              ],
+            ),
+            subtitle: const Text('Demo policy version 2026-08-15'),
+          ),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             key: const Key('google-signup-submit'),
             onPressed: signupBusy ? null : _signupWithGoogle,
@@ -996,6 +1086,12 @@ class _SignupScreenState extends State<SignupScreen> {
           FilledButton(
             key: const Key('email-signup-submit'),
             onPressed: signupBusy ? null : () async {
+              if (!acceptedPolicies) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Accept the AVORA Terms and Privacy Policy to continue.')),
+                );
+                return;
+              }
               if (displayName.text.trim().isEmpty ||
                   email.text.trim().isEmpty ||
                   password.text.length < 6) {
@@ -1039,6 +1135,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   'dateOfBirth': dob.text.trim().isEmpty ? null : dob.text.trim(),
                   'bio': bio.text.trim().isEmpty ? null : bio.text.trim(),
                   'profileSetupComplete': true,
+                  'policyVersion': 'demo-2026-08-15',
+                  'policyAcceptedAt': FieldValue.serverTimestamp(),
                   'updatedAt': FieldValue.serverTimestamp(),
                   'originalAvoraId': account['originalAvoraId'],
                 }, SetOptions(merge: true));
