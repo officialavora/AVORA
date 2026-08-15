@@ -22,6 +22,13 @@ void main() {
       const MaterialApp(home: SignupScreen()),
     );
 
+    await tester.scrollUntilVisible(
+      find.byTooltip('Show password'),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.byTooltip('Show password'), findsOneWidget);
     await tester.tap(find.byTooltip('Show password'));
     await tester.pump();
