@@ -31,6 +31,7 @@ Future<Map<String, dynamic>> ensureAvoraAccount({
 
   final db = FirebaseFirestore.instance;
   final userRef = db.collection('users').doc(user.uid);
+  final publicRef = db.collection('publicProfiles').doc(user.uid);
   final counterRef = db.collection('system').doc('counters');
 
   return db.runTransaction<Map<String, dynamic>>((transaction) async {
@@ -38,6 +39,23 @@ Future<Map<String, dynamic>> ensureAvoraAccount({
     final existing = userSnapshot.data();
 
     if (userSnapshot.exists && existing != null) {
+      transaction.set(publicRef, {
+        'originalAvoraId': existing['originalAvoraId'],
+        'displayName': existing['displayName'] ?? user.displayName ?? 'AVORA User',
+        'photoDataUrl': existing['photoDataUrl'],
+        'photoUrl': existing['photoUrl'],
+        'bio': existing['bio'],
+        'country': existing['country'],
+        'countryCode': existing['countryCode'],
+        'richLevel': existing['richLevel'] ?? 0,
+        'charmLevel': existing['charmLevel'] ?? 0,
+        'vipLevel': existing['vipLevel'] ?? 0,
+        'friendsCount': existing['friendsCount'] ?? 0,
+        'followersCount': existing['followersCount'] ?? 0,
+        'followingCount': existing['followingCount'] ?? 0,
+        'verified': existing['verified'] == true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       return existing;
     }
 
@@ -72,6 +90,19 @@ Future<Map<String, dynamic>> ensureAvoraAccount({
       'agencyId': null,
       'displayName': name,
       'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    transaction.set(publicRef, {
+      'originalAvoraId': nextId,
+      'displayName': name,
+      'richLevel': 0,
+      'charmLevel': 0,
+      'vipLevel': 0,
+      'friendsCount': 0,
+      'followersCount': 0,
+      'followingCount': 0,
+      'verified': false,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
     return {
@@ -2499,7 +2530,7 @@ class _UserSearchPageState extends State<UserSearchPage> {
     try {
       final lookup = int.tryParse(value) ?? value;
       final snapshot = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('publicProfiles')
           .where('originalAvoraId', isEqualTo: lookup)
           .limit(10)
           .get();
@@ -2704,10 +2735,16 @@ class _ProfilePageState extends State<ProfilePage> {
         throw const FormatException('Selected photo is too large');
       }
       final dataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(FirebaseFirestore.instance.collection('users').doc(user.uid), {
         'photoDataUrl': dataUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      batch.set(FirebaseFirestore.instance.collection('publicProfiles').doc(user.uid), {
+        'photoDataUrl': dataUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await batch.commit();
       if (mounted) setState(() => account['photoDataUrl'] = dataUrl);
     } on Object {
       if (!mounted) return;
@@ -2768,7 +2805,24 @@ class _ProfilePageState extends State<ProfilePage> {
         'countryCode': countryCode,
         'updatedAt': FieldValue.serverTimestamp(),
       };
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(changes, SetOptions(merge: true));
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(
+        FirebaseFirestore.instance.collection('users').doc(user.uid),
+        changes,
+        SetOptions(merge: true),
+      );
+      batch.set(
+        FirebaseFirestore.instance.collection('publicProfiles').doc(user.uid),
+        {
+          'displayName': name.text.trim(),
+          'bio': bio.text.trim(),
+          'country': countryName,
+          'countryCode': countryCode,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      await batch.commit();
       if (mounted) setState(() => account.addAll(changes));
     } on FirebaseException {
       if (!mounted) return;
