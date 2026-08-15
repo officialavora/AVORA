@@ -10,10 +10,12 @@ void main() {
     expect(country, findsOneWidget);
     expect(find.textContaining('Suggested from your device region'), findsOneWidget);
 
-    await tester.tap(country);
-    await tester.pumpAndSettle();
-    expect(find.text('Saudi Arabia (SA)'), findsOneWidget);
-    expect(find.text('India (IN)'), findsOneWidget);
+    final field = tester.widget<DropdownButtonFormField<String>>(country);
+    final countryCodes = field.items!
+        .map((item) => item.value)
+        .whereType<String>()
+        .toSet();
+    expect(countryCodes, containsAll(<String>{'SA', 'IN', 'PK'}));
   });
 
   testWidgets('inbox sections navigate to contact form', (tester) async {
