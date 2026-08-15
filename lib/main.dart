@@ -431,6 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final password = TextEditingController();
 
   bool googleBusy = false;
+  bool emailBusy = false;
   bool passwordVisible = false;
   String? authProgress;
 
@@ -525,6 +526,61 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _signInWithEmail() async {
+    if (emailBusy || googleBusy) return;
+    if (email.text.trim().isEmpty || password.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter your email and password')),
+      );
+      return;
+    }
+    setState(() {
+      emailBusy = true;
+      authProgress = 'Verifying your AVORA account';
+    });
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email.text.trim(),
+        password: password.text,
+      );
+      _setProgress('Restoring your AVORA profile');
+      await ensureAvoraAccount(onProgress: _setProgress);
+      _setProgress('Account ready');
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (_) => false,
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.code) {
+        'invalid-email' => 'Enter a valid email address.',
+        'user-disabled' =>
+          'This account is unavailable. Please contact AVORA support.',
+        'too-many-requests' =>
+          'Too many attempts. Wait a moment, then try again.',
+        _ => 'Email or password is incorrect. Please try again.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AVORA could not restore your profile. Please retry.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          emailBusy = false;
+          authProgress = null;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -585,40 +641,19 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 18),
           FilledButton(
-            onPressed: googleBusy
-                ? null
-                : () async {
-                    try {
-                      await FirebaseAuth.instance.signInWithEmailAndPassword(
-                        email: email.text.trim(),
-                        password: password.text,
-                      );
-                      if (!context.mounted) return;
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const MainShell()),
-                        (_) => false,
-                      );
-                    } on FirebaseAuthException {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Login failed. Check your email and password, then try again.',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-            child: const Text('Log in'),
+            key: const Key('email-login-submit'),
+            onPressed: googleBusy || emailBusy ? null : _signInWithEmail,
+            child: Text(emailBusy ? 'Logging in…' : 'Log in'),
           ),
           OutlinedButton.icon(
-            onPressed: googleBusy ? null : _signInWithGoogle,
+            key: const Key('google-login-submit'),
+            onPressed: googleBusy || emailBusy ? null : _signInWithGoogle,
             icon: const Icon(Icons.login),
             label: const Text('Continue with Google'),
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: googleBusy
+            onPressed: googleBusy || emailBusy
                 ? null
                 : () async {
                     if (email.text.trim().isEmpty) {
@@ -650,6 +685,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
             child: const Text('Forgot password'),
           ),
+          const Divider(height: 30),
+          TextButton(
+            key: const Key('open-signup-from-login'),
+            onPressed: googleBusy || emailBusy
+                ? null
+                : () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SignupScreen()),
+                    ),
+            child: const Text('New to AVORA? Create account'),
+          ),
         ],
       ),
     );
@@ -668,6 +713,8 @@ class _SignupScreenState extends State<SignupScreen> {
   String selectedCountryCode = 'US';
   String selectedCountryName = 'United States';
   bool passwordVisible = false;
+  bool signupBusy = false;
+  String? signupProgress;
 
   final displayName = TextEditingController();
   final invite = TextEditingController();
@@ -721,6 +768,56 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  void _setSignupProgress(String value) {
+    if (!mounted) return;
+    setState(() => signupProgress = value);
+  }
+
+  Future<void> _signupWithGoogle() async {
+    if (signupBusy) return;
+    setState(() {
+      signupBusy = true;
+      signupProgress = 'Connecting to Google';
+    });
+    try {
+      final adapter = AvoraGoogleSignInAdapter();
+      await adapter.initialize();
+      _setSignupProgress('Waiting for Google account');
+      final result = await adapter.signIn();
+      if (!result.success) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google signup did not complete. Please try again.'),
+          ),
+        );
+        return;
+      }
+      _setSignupProgress('Google account verified');
+      await ensureAvoraAccount(onProgress: _setSignupProgress);
+      _setSignupProgress('Account ready');
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainShell()),
+        (_) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('AVORA could not create your account. Please retry.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          signupBusy = false;
+          signupProgress = null;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     displayName.dispose();
@@ -739,6 +836,43 @@ class _SignupScreenState extends State<SignupScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (signupProgress != null) ...[
+            Semantics(
+              liveRegion: true,
+              label: signupProgress,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: [
+                    const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(child: Text(signupProgress!)),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+          OutlinedButton.icon(
+            key: const Key('google-signup-submit'),
+            onPressed: signupBusy ? null : _signupWithGoogle,
+            icon: const Icon(Icons.login),
+            label: const Text('Continue with Google'),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Row(children: [
+              Expanded(child: Divider()),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text('or create with email'),
+              ),
+              Expanded(child: Divider()),
+            ]),
+          ),
           TextField(
             controller: displayName,
             decoration: const InputDecoration(labelText: 'Display name *'),
@@ -823,7 +957,8 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
           const SizedBox(height: 18),
           FilledButton(
-            onPressed: () async {
+            key: const Key('email-signup-submit'),
+            onPressed: signupBusy ? null : () async {
               if (displayName.text.trim().isEmpty ||
                   email.text.trim().isEmpty ||
                   password.text.length < 6) {
@@ -836,6 +971,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 return;
               }
 
+              setState(() {
+                signupBusy = true;
+                signupProgress = 'Creating AVORA account';
+              });
               try {
                 final result =
                     await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -845,7 +984,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
                 await result.user?.updateDisplayName(displayName.text.trim());
 
-                final account = await ensureAvoraAccount();
+                final account = await ensureAvoraAccount(
+                  onProgress: _setSignupProgress,
+                );
+                _setSignupProgress('Saving profile');
                 await FirebaseFirestore.instance
                     .collection('users')
                     .doc(result.user!.uid)
@@ -893,9 +1035,21 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                 );
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    signupBusy = false;
+                    signupProgress = null;
+                  });
+                }
               }
             },
-            child: const Text('Create account'),
+            child: Text(signupBusy ? 'Creating account…' : 'Create account'),
+          ),
+          TextButton(
+            key: const Key('back-to-login-from-signup'),
+            onPressed: signupBusy ? null : () => Navigator.of(context).pop(),
+            child: const Text('Already have an account? Log in'),
           ),
         ],
       ),
@@ -2247,8 +2401,31 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 14),
           FilledButton.tonalIcon(
+            key: const Key('sign-out-button'),
             onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Sign out of AVORA?'),
+                  content: const Text(
+                    'Your permanent AVORA ID and profile will stay safe. You can log in again anytime.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Stay logged in'),
+                    ),
+                    FilledButton(
+                      key: const Key('confirm-sign-out'),
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('Sign out'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed != true || !context.mounted) return;
               await FirebaseAuth.instance.signOut();
+              await AvoraGoogleSignInAdapter().signOut();
               if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const WelcomeScreen()),
