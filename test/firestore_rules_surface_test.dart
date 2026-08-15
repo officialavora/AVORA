@@ -9,6 +9,9 @@ void main() {
     expect(rules, contains('request.resource.data.originalAvoraId == resource.data.originalAvoraId'));
     expect(rules, contains("request.resource.data.role == resource.data.role"));
     expect(rules, contains('request.resource.data.ownerUid == request.auth.uid'));
+    expect(rules, contains("match /publicProfiles/{uid}"));
+    expect(rules, contains("allow read: if owns(uid)"));
+    expect(rules, contains("request.resource.data.keys().hasOnly"));
     expect(rules, contains("match /rooms/{roomId}"));
     expect(rules, contains("match /members/{uid}"));
     expect(rules, contains("request.resource.data.userUid == uid"));
