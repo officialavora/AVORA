@@ -17,6 +17,11 @@ void main() {
     await tester.tap(find.byKey(const Key('open-signup-from-login')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('google-signup-submit')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('email-signup-submit')),
+      350,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.byKey(const Key('email-signup-submit')), findsOneWidget);
   });
 
@@ -24,23 +29,9 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: ProfilePage(
-          account: {
-            'originalAvoraId': 10000003,
-            'displayName': 'AVORA Tester',
-            'role': 'user',
-          },
-        ),
+        home: Scaffold(body: AvoraSignOutConfirmationDialog()),
       ),
     );
-
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('sign-out-button')),
-      350,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.byKey(const Key('sign-out-button')));
-    await tester.pumpAndSettle();
 
     expect(find.text('Sign out of AVORA?'), findsOneWidget);
     expect(find.textContaining('permanent AVORA ID'), findsOneWidget);
