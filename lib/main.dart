@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -2465,10 +2464,8 @@ class _UserSearchPageState extends State<UserSearchPage> {
                 margin: const EdgeInsets.only(top: 14),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundImage: (account['photoUrl'] as String?)?.isNotEmpty == true
-                        ? NetworkImage(account['photoUrl'] as String)
-                        : null,
-                    child: (account['photoUrl'] as String?)?.isNotEmpty == true
+                    backgroundImage: avoraProfileImage(account),
+                    child: hasAvoraProfileImage(account)
                         ? null
                         : const Icon(Icons.person),
                   ),
@@ -2557,6 +2554,12 @@ class PublicProfilePage extends StatelessWidget {
             _Stat(value: '$richLevel', label: 'Rich Level'),
             _Stat(value: '$charmLevel', label: 'Charm Level'),
             _Stat(value: (account['vipLevel'] ?? 0).toString(), label: 'VIP'),
+          ]),
+          const SizedBox(height: 18),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            _Stat(value: (account['friendsCount'] ?? 0).toString(), label: 'Friends'),
+            _Stat(value: (account['followersCount'] ?? 0).toString(), label: 'Followers'),
+            _Stat(value: (account['followingCount'] ?? 0).toString(), label: 'Following'),
           ]),
           const SizedBox(height: 22),
           if ((account['bio'] as String?)?.trim().isNotEmpty == true)
