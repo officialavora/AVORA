@@ -25,7 +25,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byTooltip('Show password'),
       300,
-      scrollable: find.byType(Scrollable),
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
