@@ -8,9 +8,9 @@ void main() {
 
     final country = find.byKey(const Key('signup-country'));
     expect(country, findsOneWidget);
-    expect(find.textContaining('Suggested from your device region'), findsOneWidget);
+    expect(find.textContaining('Suggested from your current network'), findsOneWidget);
 
-    expect(find.byType(DropdownButtonFormField<String>), findsAtLeastNWidgets(2));
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
   });
 
   testWidgets('inbox sections navigate to contact form', (tester) async {

@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:country_picker/country_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
+import 'services/avora_country_suggestion.dart';
 import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 
@@ -181,8 +186,31 @@ class AvoraLogo extends StatelessWidget {
   }
 }
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
+
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController ambience;
+
+  @override
+  void initState() {
+    super.initState();
+    ambience = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 7),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    ambience.dispose();
+    super.dispose();
+  }
 
   void _openHome(BuildContext context) {
     Navigator.of(context).pushReplacement(
@@ -227,6 +255,26 @@ class WelcomeScreen extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          AnimatedBuilder(
+            animation: ambience,
+            builder: (context, child) => Stack(children: [
+              Positioned(
+                left: 28 + (ambience.value * 36),
+                top: 110 + (ambience.value * 18),
+                child: const _WelcomeSpark(icon: Icons.auto_awesome, color: Color(0xFFD8B86A)),
+              ),
+              Positioned(
+                right: 30 + (ambience.value * 20),
+                top: 300 - (ambience.value * 24),
+                child: const _WelcomeSpark(icon: Icons.music_note, color: Color(0xFFBD8CFF)),
+              ),
+              Positioned(
+                left: 55 + (ambience.value * 18),
+                bottom: 310 + (ambience.value * 18),
+                child: const _WelcomeSpark(icon: Icons.celebration, color: Color(0xFF63C9FF)),
+              ),
+            ]),
           ),
           SafeArea(
             child: Padding(
@@ -347,6 +395,24 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 }
+
+class _WelcomeSpark extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _WelcomeSpark({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.22), blurRadius: 22)],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: color.withValues(alpha: 0.72), size: 20),
+        ),
+      );
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onDemoLogin;
@@ -597,6 +663,7 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   String gender = 'Prefer not to say';
   String selectedCountryCode = 'US';
+  String selectedCountryName = 'United States';
   bool passwordVisible = false;
 
   final displayName = TextEditingController();
@@ -606,29 +673,48 @@ class _SignupScreenState extends State<SignupScreen> {
   final email = TextEditingController();
   final password = TextEditingController();
 
-  static const countries = <String, String>{
-    'SA': 'Saudi Arabia',
-    'IN': 'India',
-    'PK': 'Pakistan',
-    'BD': 'Bangladesh',
-    'NP': 'Nepal',
-    'AE': 'United Arab Emirates',
-    'QA': 'Qatar',
-    'KW': 'Kuwait',
-    'BH': 'Bahrain',
-    'OM': 'Oman',
-    'PH': 'Philippines',
-    'GB': 'United Kingdom',
-    'US': 'United States',
-  };
-
   @override
   void initState() {
     super.initState();
-    final suggested = WidgetsBinding.instance.platformDispatcher.locale.countryCode;
-    if (suggested != null && countries.containsKey(suggested.toUpperCase())) {
-      selectedCountryCode = suggested.toUpperCase();
+    _suggestCountry();
+  }
+
+  Future<void> _suggestCountry() async {
+    final suggested = await AvoraCountrySuggestion.resolve();
+    if (!mounted || suggested == null) return;
+    Country? match;
+    for (final country in CountryService().getAll()) {
+      if (country.countryCode.toUpperCase() == suggested) {
+        match = country;
+        break;
+      }
     }
+    if (match == null) return;
+    setState(() {
+      selectedCountryCode = match.countryCode;
+      selectedCountryName = match.name;
+    });
+  }
+
+  void _pickCountry() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      countryListTheme: CountryListThemeData(
+        backgroundColor: const Color(0xFF100B1C),
+        textStyle: const TextStyle(color: Colors.white),
+        searchTextStyle: const TextStyle(color: Colors.white),
+        inputDecoration: const InputDecoration(
+          labelText: 'Search every country',
+          prefixIcon: Icon(Icons.search),
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      onSelect: (country) => setState(() {
+        selectedCountryCode = country.countryCode;
+        selectedCountryName = country.name;
+      }),
+    );
   }
 
   @override
@@ -668,26 +754,19 @@ class _SignupScreenState extends State<SignupScreen> {
             onChanged: (v) => setState(() => gender = v ?? gender),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          InkWell(
             key: const Key('signup-country'),
-            initialValue: selectedCountryCode,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Country *',
-              helperText: 'Suggested from your device region • You can change it',
-              prefixIcon: Icon(Icons.public),
+            onTap: _pickCountry,
+            borderRadius: BorderRadius.circular(16),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Country *',
+                helperText: 'Suggested from your current network • Tap to change',
+                prefixIcon: Icon(Icons.public),
+                suffixIcon: Icon(Icons.keyboard_arrow_down),
+              ),
+              child: Text('$selectedCountryName ($selectedCountryCode)'),
             ),
-            items: countries.entries
-                .map(
-                  (entry) => DropdownMenuItem(
-                    value: entry.key,
-                    child: Text('${entry.value} (${entry.key})'),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (value) {
-              if (value != null) setState(() => selectedCountryCode = value);
-            },
           ),
           const SizedBox(height: 12),
           TextField(
@@ -769,7 +848,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     .set({
                   'displayName': displayName.text.trim(),
                   'gender': gender,
-                  'country': countries[selectedCountryCode],
+                  'country': selectedCountryName,
                   'countryCode': selectedCountryCode,
                   'invitationCode': invite.text.trim().isEmpty
                       ? null
@@ -1666,10 +1745,111 @@ class _ContactAvoraScreenState extends State<ContactAvoraScreen> {
   }
 }
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   final Map<String, dynamic> account;
 
   const ProfilePage({super.key, required this.account});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  late Map<String, dynamic> account;
+  bool savingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    account = Map<String, dynamic>.from(widget.account);
+  }
+
+  Future<void> _changePhoto() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || savingPhoto) return;
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 72,
+      maxWidth: 1080,
+    );
+    if (image == null || !mounted) return;
+    setState(() => savingPhoto = true);
+    try {
+      final ref = FirebaseStorage.instance.ref('profilePhotos/${user.uid}/avatar.jpg');
+      await ref.putFile(File(image.path));
+      final url = await ref.getDownloadURL();
+      await user.updatePhotoURL(url);
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'photoUrl': url,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      if (mounted) setState(() => account['photoUrl'] = url);
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Profile photo could not be saved. Please retry.'),
+      ));
+    } finally {
+      if (mounted) setState(() => savingPhoto = false);
+    }
+  }
+
+  Future<void> _editProfile() async {
+    final name = TextEditingController(text: (account['displayName'] ?? '').toString());
+    final bio = TextEditingController(text: (account['bio'] ?? '').toString());
+    var countryName = (account['country'] ?? 'Select country').toString();
+    var countryCode = (account['countryCode'] ?? '').toString();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit profile'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(controller: name, maxLength: 30, decoration: const InputDecoration(labelText: 'Display name')),
+              TextField(controller: bio, maxLength: 160, maxLines: 3, decoration: const InputDecoration(labelText: 'Bio')),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.public),
+                title: Text(countryName),
+                subtitle: const Text('Country'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showCountryPicker(
+                  context: context,
+                  onSelect: (country) => setDialogState(() {
+                    countryName = country.name;
+                    countryCode = country.countryCode;
+                  }),
+                ),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (saved != true || name.text.trim().isEmpty) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      await user.updateDisplayName(name.text.trim());
+      final changes = <String, dynamic>{
+        'displayName': name.text.trim(),
+        'bio': bio.text.trim(),
+        'country': countryName,
+        'countryCode': countryCode,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(changes, SetOptions(merge: true));
+      if (mounted) setState(() => account.addAll(changes));
+    } on FirebaseException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile could not be saved. Please retry.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1685,11 +1865,39 @@ class ProfilePage extends StatelessWidget {
     final role = (account['role'] ?? 'user').toString().toUpperCase();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [IconButton(key: const Key('edit-profile'), tooltip: 'Edit profile', onPressed: _editProfile, icon: const Icon(Icons.edit_outlined))],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Center(child: AvoraLogo(size: 92)),
+          Center(
+            child: Stack(children: [
+              CircleAvatar(
+                radius: 48,
+                backgroundColor: const Color(0xFF5D36A3),
+                backgroundImage: (account['photoUrl'] as String?)?.isNotEmpty == true
+                    ? NetworkImage(account['photoUrl'] as String)
+                    : null,
+                child: (account['photoUrl'] as String?)?.isNotEmpty == true
+                    ? null
+                    : const AvoraLogo(size: 72),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: IconButton.filled(
+                  key: const Key('change-profile-photo'),
+                  tooltip: 'Change profile photo',
+                  onPressed: savingPhoto ? null : _changePhoto,
+                  icon: savingPhoto
+                      ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.camera_alt, size: 18),
+                ),
+              ),
+            ]),
+          ),
           const SizedBox(height: 14),
           Center(
             child: Text(
