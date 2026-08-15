@@ -77,7 +77,12 @@ Do not ask the owner to repeat project history already recorded here.
 - Build 13 adds the roadmap five-tab shell (Home/Discover/Create/Inbox/Me), functional Home actions, a Create hub, and removes starter/developer-facing Home text.
 - Build 13 tests, analyze, APK, and AAB passed. Real-device verification remains required.
 - Build 16 adds permanent AVORA ID copy, exact numeric user search, USER/OFFICIAL identity surfaces, and public profile levels. Tests, analyze, APK, and AAB passed; real-device verification remains required.
-- Build 17 adds direct Google signup, reconciled email re-login, explicit auth progress, account-route links, and confirmed logout with Google provider cleanup. CI and device verification are pending.
+- Build 17 commit: 341f1f94cf32c6772e6fc717ddfa329d296c6b93
+- Build 17 adds direct Google signup, reconciled email re-login, explicit auth progress, account-route links, confirmed logout, and Google provider cleanup.
+- Build 17 tests, analyze, APK, and AAB passed.
+  - APK run #62: https://github.com/officialavora/AVORA/actions/runs/31894788502
+  - AAB run #38: https://github.com/officialavora/AVORA/actions/runs/31894788503
+- Build 17 real-device verification remains required; AUTH-001 is not DONE.
 - Device recording confirms Firestore permission failures currently block user search, profile save, and persistent cross-device rooms. UI-only success must not be treated as backend PASS.
 
 ## AUTH-001 remaining PASS gates
@@ -150,4 +155,4 @@ Never mark placeholder/local-demo behavior as DONE.
 
 ## Exact Next Action
 
-Push Build 17 to the active branch, inspect both APK and AAB workflows, fix any exact CI failure, then provide the artifact links and focused real-device auth lifecycle checklist. Secure Firestore rules remain the next backend gate.
+Install Build 17 from APK run #62 and verify Google signup, permanent AVORA ID, logout, and same-account re-login. In parallel, implement and deploy secure Firestore rules for profile save, exact ID search, and persistent rooms—the next backend gate.
