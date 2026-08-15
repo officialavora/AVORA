@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn();
+      allow read: if owns(uid);
 
       allow create: if owns(uid)
         && request.resource.data.originalAvoraId is int
@@ -21,6 +21,31 @@ service cloud.firestore {
         && request.resource.data.originalAvoraId == resource.data.originalAvoraId
         && request.resource.data.role == resource.data.role
         && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+
+    match /publicProfiles/{uid} {
+      allow read: if signedIn();
+
+      allow create: if owns(uid)
+        && request.resource.data.originalAvoraId is int
+        && request.resource.data.keys().hasOnly([
+          'originalAvoraId', 'displayName', 'photoDataUrl', 'photoUrl',
+          'bio', 'country', 'countryCode', 'richLevel', 'charmLevel',
+          'vipLevel', 'friendsCount', 'followersCount', 'followingCount',
+          'verified', 'updatedAt'
+        ]);
+
+      allow update: if owns(uid)
+        && request.resource.data.originalAvoraId == resource.data.originalAvoraId
+        && request.resource.data.keys().hasOnly([
+          'originalAvoraId', 'displayName', 'photoDataUrl', 'photoUrl',
+          'bio', 'country', 'countryCode', 'richLevel', 'charmLevel',
+          'vipLevel', 'friendsCount', 'followersCount', 'followingCount',
+          'verified', 'updatedAt'
+        ]);
 
       allow delete: if false;
     }
