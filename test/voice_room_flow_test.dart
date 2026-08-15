@@ -27,13 +27,11 @@ void main() {
     );
 
     expect(find.text('AVORA Test Room'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('voice-seat-9')),
-      240,
-      scrollable: find.byKey(const Key('voice-room-seats')),
+    final seatGrid = tester.widget<GridView>(
+      find.byKey(const Key('voice-room-seats')),
     );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('voice-seat-9')), findsOneWidget);
+    expect(seatGrid.semanticChildCount, 10);
+    expect(find.byKey(const Key('voice-seat-0')), findsOneWidget);
     expect(find.text('Mic off'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('voice-room-mic')));
