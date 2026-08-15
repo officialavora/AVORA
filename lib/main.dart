@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'services/avora_country_suggestion.dart';
@@ -1025,7 +1026,7 @@ class HomePage extends StatelessWidget {
           IconButton(
             tooltip: 'Search rooms',
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RoomsPage()),
+              MaterialPageRoute(builder: (_) => const UserSearchPage()),
             ),
             icon: const Icon(Icons.search),
           ),
@@ -1362,12 +1363,13 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
         });
         roomId = room.id;
       }
-    } on FirebaseException {
+    } on FirebaseException catch (error) {
       if (!mounted) return;
       setState(() => creating = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Room could not be saved. Check your connection and retry.'),
-      ));
+      final message = error.code == 'permission-denied'
+          ? 'Room creation is waiting for secure backend permission.'
+          : 'Room could not be saved. Check your connection and retry.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
     if (!mounted) return;
@@ -1838,6 +1840,187 @@ class _ContactAvoraScreenState extends State<ContactAvoraScreen> {
   }
 }
 
+class UserSearchPage extends StatefulWidget {
+  const UserSearchPage({super.key});
+
+  @override
+  State<UserSearchPage> createState() => _UserSearchPageState();
+}
+
+class _UserSearchPageState extends State<UserSearchPage> {
+  final query = TextEditingController();
+  bool searching = false;
+  String? error;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> results = const [];
+
+  @override
+  void dispose() {
+    query.dispose();
+    super.dispose();
+  }
+
+  Future<void> search() async {
+    final value = query.text.trim();
+    if (value.isEmpty || searching) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      searching = true;
+      error = null;
+      results = const [];
+    });
+    try {
+      final lookup = int.tryParse(value) ?? value;
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('originalAvoraId', isEqualTo: lookup)
+          .limit(10)
+          .get();
+      if (!mounted) return;
+      setState(() {
+        results = snapshot.docs;
+        error = snapshot.docs.isEmpty ? 'No AVORA account found for this ID.' : null;
+      });
+    } on FirebaseException catch (firebaseError) {
+      if (!mounted) return;
+      setState(() {
+        error = firebaseError.code == 'permission-denied'
+            ? 'User search is waiting for secure backend permission.'
+            : 'Search could not be completed. Please retry.';
+      });
+    } finally {
+      if (mounted) setState(() => searching = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Search AVORA ID')),
+        body: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            TextField(
+              key: const Key('user-search-field'),
+              controller: query,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => search(),
+              decoration: InputDecoration(
+                labelText: 'AVORA ID',
+                hintText: 'Example: 10000003',
+                prefixIcon: const Icon(Icons.badge_outlined),
+                suffixIcon: IconButton(
+                  key: const Key('user-search-submit'),
+                  tooltip: 'Search',
+                  onPressed: searching ? null : search,
+                  icon: searching
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.search),
+                ),
+              ),
+            ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 22),
+                child: Text(error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+              ),
+            ...results.map((document) {
+              final account = document.data();
+              final name = (account['displayName'] ?? 'AVORA User').toString();
+              final official = account['isOfficial'] == true || account['verified'] == true;
+              return Card(
+                margin: const EdgeInsets.only(top: 14),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: (account['photoUrl'] as String?)?.isNotEmpty == true
+                        ? NetworkImage(account['photoUrl'] as String)
+                        : null,
+                    child: (account['photoUrl'] as String?)?.isNotEmpty == true
+                        ? null
+                        : const Icon(Icons.person),
+                  ),
+                  title: Row(children: [
+                    Flexible(child: Text(name)),
+                    if (official) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.verified, color: Color(0xFF63C9FF), size: 18),
+                    ],
+                  ]),
+                  subtitle: Text('ID ${account['originalAvoraId'] ?? '—'} • ${official ? 'OFFICIAL' : 'USER'}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => PublicProfilePage(account: account)),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      );
+}
+
+class PublicProfilePage extends StatelessWidget {
+  final Map<String, dynamic> account;
+  const PublicProfilePage({super.key, required this.account});
+
+  @override
+  Widget build(BuildContext context) {
+    final avoraId = (account['originalAvoraId'] ?? '—').toString();
+    final name = (account['displayName'] ?? 'AVORA User').toString();
+    final official = account['isOfficial'] == true || account['verified'] == true;
+    final richLevel = (account['richLevel'] as num?)?.toInt() ?? 0;
+    final charmLevel = (account['charmLevel'] as num?)?.toInt() ?? 0;
+    return Scaffold(
+      appBar: AppBar(title: const Text('AVORA Profile')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          CircleAvatar(
+            radius: 52,
+            backgroundImage: (account['photoUrl'] as String?)?.isNotEmpty == true
+                ? NetworkImage(account['photoUrl'] as String)
+                : null,
+            child: (account['photoUrl'] as String?)?.isNotEmpty == true
+                ? null
+                : const AvoraLogo(size: 76),
+          ),
+          const SizedBox(height: 14),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(name, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+            if (official) ...[
+              const SizedBox(width: 7),
+              const Icon(Icons.verified, color: Color(0xFF63C9FF)),
+            ],
+          ]),
+          const SizedBox(height: 8),
+          Center(
+            child: ActionChip(
+              avatar: const Icon(Icons.copy, size: 16),
+              label: Text('ID $avoraId • ${official ? 'OFFICIAL' : 'USER'}'),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: avoraId));
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AVORA ID copied')));
+              },
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            _Stat(value: '$richLevel', label: 'Rich Level'),
+            _Stat(value: '$charmLevel', label: 'Charm Level'),
+            _Stat(value: (account['vipLevel'] ?? 0).toString(), label: 'VIP'),
+          ]),
+          const SizedBox(height: 22),
+          if ((account['bio'] as String?)?.trim().isNotEmpty == true)
+            Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(account['bio'] as String))),
+        ],
+      ),
+    );
+  }
+}
+
 class ProfilePage extends StatefulWidget {
   final Map<String, dynamic> account;
 
@@ -2003,11 +2186,29 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 6),
           Center(
-            child: Text(
-              'ID: $avoraId',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
+            child: InkWell(
+              key: const Key('copy-avora-id'),
+              borderRadius: BorderRadius.circular(20),
+              onTap: () async {
+                await Clipboard.setData(ClipboardData(text: avoraId.toString()));
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('AVORA ID copied')),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'ID: $avoraId',
+                      style: const TextStyle(fontSize: 16, color: Colors.white70),
+                    ),
+                    const SizedBox(width: 7),
+                    const Icon(Icons.copy, size: 16, color: Colors.white60),
+                  ],
+                ),
               ),
             ),
           ),
