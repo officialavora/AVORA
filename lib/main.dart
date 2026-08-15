@@ -2405,23 +2405,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Sign out of AVORA?'),
-                  content: const Text(
-                    'Your permanent AVORA ID and profile will stay safe. You can log in again anytime.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Stay logged in'),
-                    ),
-                    FilledButton(
-                      key: const Key('confirm-sign-out'),
-                      onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('Sign out'),
-                    ),
-                  ],
-                ),
+                builder: (_) => const AvoraSignOutConfirmationDialog(),
               );
               if (confirmed != true || !context.mounted) return;
               await FirebaseAuth.instance.signOut();
@@ -2439,6 +2423,29 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+}
+
+class AvoraSignOutConfirmationDialog extends StatelessWidget {
+  const AvoraSignOutConfirmationDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Sign out of AVORA?'),
+        content: const Text(
+          'Your permanent AVORA ID and profile will stay safe. You can log in again anytime.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Stay logged in'),
+          ),
+          FilledButton(
+            key: const Key('confirm-sign-out'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      );
 }
 
 class _Stat extends StatelessWidget {
