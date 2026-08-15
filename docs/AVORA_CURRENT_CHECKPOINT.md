@@ -14,7 +14,7 @@ Do not ask the owner to repeat project history already recorded here.
 - Android first; architecture must remain iOS-compatible
 - Active branch: work/auth-001-google-signin
 - Active pull request: #1
-- Current app version: 0.1.0+10
+- Current app version: 0.1.0+11
 
 ## Permanent delivery rules
 
@@ -62,25 +62,27 @@ Do not ask the owner to repeat project history already recorded here.
 
 ## Current build status
 
-- Active batch: 10
-- Latest repair commit: ccd66b9424e40d00601553ba86b3e012003f30ae
-- APK workflow run #43: IN PROGRESS
-  https://github.com/officialavora/AVORA/actions/runs/31855068823
-- AAB workflow run #19: IN PROGRESS
-  https://github.com/officialavora/AVORA/actions/runs/31855068819
-- Build 9 passed analyze and release APK generation.
+- Active batch: 11
+- Latest repair commit: fdff31b863ad5d837829289329c5566f65deb79e
+- APK workflow run #46: SUCCESS
+  https://github.com/officialavora/AVORA/actions/runs/31880462867
+- AAB workflow run #22: SUCCESS
+  https://github.com/officialavora/AVORA/actions/runs/31880462864
 - Build 9 device evidence passed cinematic Welcome, Google login, and same permanent ID 10000003.
-- Build 10 adds password visibility, autofill/keyboard UX, automated tests, and parallel APK/AAB release verification.
+- Build 10 added password visibility, autofill/keyboard UX, automated tests, and parallel APK/AAB release verification.
+- Build 11 adds functional room-card navigation, validated room creation, a cinematic room surface, 10-seat UI, and testable mic/speaker states.
+- Build 11 tests, analyze, APK, and AAB passed. Real-device verification remains required.
 
 ## AUTH-001 remaining PASS gates
 
-1. Run #38 analyze and APK build PASS.
-2. Download/install version +9.
-3. Google login on Play/internal-distributed build.
+1. Download/install version +11.
+2. Verify login/signup password visibility.
+3. Google login on the signed build.
 4. Same Google account returns the same permanent AVORA ID.
 5. Firestore profile persists.
 6. Logout/login again passes.
 7. No raw technical error reaches the user.
+8. Verify room card opens, room creation validates a name, and the new room screen renders/operates without a crash.
 
 AUTH-001 must not be marked DONE before every gate passes.
 
