@@ -61,6 +61,18 @@ service cloud.firestore {
       allow delete: if signedIn()
         && resource.data.ownerUid == request.auth.uid;
 
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow create: if owns(uid)
+          && request.resource.data.userUid == uid
+          && request.resource.data.seatIndex is int;
+        allow update: if owns(uid)
+          && resource.data.userUid == uid
+          && request.resource.data.userUid == uid;
+        allow delete: if owns(uid)
+          && resource.data.userUid == uid;
+      }
+
       match /messages/{messageId} {
         allow read: if signedIn();
         allow create: if signedIn()
