@@ -2205,6 +2205,7 @@ class RoomActivityStrip extends StatelessWidget {
     final id = roomId;
     if (id == null || Firebase.apps.isEmpty) {
       return Container(
+        key: const Key('room-activity-strip'),
         height: 76,
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
         padding: const EdgeInsets.all(12),
@@ -2219,6 +2220,7 @@ class RoomActivityStrip extends StatelessWidget {
       );
     }
     return Container(
+      key: const Key('room-activity-strip'),
       height: 76,
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
