@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'services/avora_country_suggestion.dart';
 import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
+import 'services/avora_test_economy_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1247,12 +1248,18 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    accountFuture = ensureAvoraAccount();
+    accountFuture = _loadAccount();
+  }
+
+  Future<Map<String, dynamic>> _loadAccount() async {
+    final account = await ensureAvoraAccount();
+    await AvoraTestEconomyService().ensureWallet();
+    return account;
   }
 
   void retry() {
     setState(() {
-      accountFuture = ensureAvoraAccount();
+      accountFuture = _loadAccount();
     });
   }
 
@@ -1373,6 +1380,8 @@ class HomePage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           const _HeroCard(),
+          const SizedBox(height: 12),
+          const _TestWalletCard(),
           const SizedBox(height: 18),
           const SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1437,6 +1446,52 @@ class _HeroCard extends StatelessWidget {
           Text('Enter a room. Meet your people.'),
         ],
       ),
+    );
+  }
+}
+
+class _TestWalletCard extends StatelessWidget {
+  const _TestWalletCard();
+
+  @override
+  Widget build(BuildContext context) {
+    if (Firebase.apps.isEmpty || FirebaseAuth.instance.currentUser == null) {
+      return const SizedBox.shrink();
+    }
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: AvoraTestEconomyService().watchMyWallet(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final coins = (data?['testCoins'] as num?)?.toInt() ?? 0;
+        final sent = (data?['sentValue'] as num?)?.toInt() ?? 0;
+        return Container(
+          key: const Key('test-wallet-card'),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171221),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0x55FFC861)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFC861)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$coins Test Coins',
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text('Demo only • Sent $sent',
+                        style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                  ],
+                ),
+              ),
+              const Chip(label: Text('TEST')),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1937,6 +1992,22 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
     );
   }
 
+  void _openGifts() {
+    final roomId = widget.roomId;
+    if (roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Join a saved room to send test gifts.')),
+      );
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF100C1A),
+      builder: (_) => TestGiftSheet(roomId: roomId, accent: accent),
+    );
+  }
+
   Future<void> _openRoomControls() async {
     final roomId = widget.roomId;
     if (!widget.isOwner || roomId == null) {
@@ -2085,11 +2156,11 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                   child: GridView.builder(
                     key: const Key('voice-room-seats'),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 0.92,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: widget.seatCount >= 15 ? 5 : 4,
+                      mainAxisSpacing: 3,
+                      crossAxisSpacing: 6,
+                      childAspectRatio: widget.seatCount >= 15 ? 0.88 : 0.98,
                     ),
                     itemCount: widget.seatCount,
                     itemBuilder: (context, index) {
@@ -2102,8 +2173,8 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                           children: [
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 220),
-                              width: 54,
-                              height: 54,
+                              width: widget.seatCount >= 15 ? 46 : 52,
+                              height: widget.seatCount >= 15 ? 46 : 52,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: active
@@ -2173,9 +2244,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                       _RoomControl(
                         icon: Icons.card_giftcard,
                         label: 'Gifts',
-                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Test gifts are in the next economy batch.')),
-                        ),
+                        onTap: _openGifts,
                       ),
                     ],
                   ),
@@ -2184,6 +2253,201 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class TestGiftSheet extends StatefulWidget {
+  const TestGiftSheet({
+    super.key,
+    required this.roomId,
+    required this.accent,
+  });
+
+  final String roomId;
+  final Color accent;
+
+  @override
+  State<TestGiftSheet> createState() => _TestGiftSheetState();
+}
+
+class _TestGiftSheetState extends State<TestGiftSheet> {
+  AvoraTestGift selectedGift = avoraTestGifts.first;
+  int quantity = 1;
+  String? receiverUid;
+  bool sending = false;
+
+  Future<void> _send() async {
+    final target = receiverUid;
+    if (target == null || sending) return;
+    setState(() => sending = true);
+    try {
+      await AvoraTestEconomyService().sendGift(
+        roomId: widget.roomId,
+        receiverUid: target,
+        gift: selectedGift,
+        quantity: quantity,
+      );
+      if (!mounted) return;
+      HapticFeedback.heavyImpact();
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${selectedGift.emoji} ${selectedGift.name} ×$quantity sent • '
+            '${selectedGift.price * quantity} test coins',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is StateError || error is ArgumentError
+          ? error.toString().replaceFirst(RegExp(r'^(Bad state|Invalid argument\(s\)): '), '')
+          : 'Gift could not be sent. Check the connection and retry.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('AVORA Test Gifts',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                ),
+                StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: AvoraTestEconomyService().watchMyWallet(),
+                  builder: (context, snapshot) {
+                    final coins =
+                        (snapshot.data?.data()?['testCoins'] as num?)?.toInt() ?? 0;
+                    return Chip(label: Text('🪙 $coins'));
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 118,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: avoraTestGifts.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final gift = avoraTestGifts[index];
+                  final active = gift.id == selectedGift.id;
+                  return InkWell(
+                    key: Key('test-gift-${gift.id}'),
+                    onTap: () => setState(() => selectedGift = gift),
+                    borderRadius: BorderRadius.circular(18),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 104,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: active
+                            ? widget.accent.withValues(alpha: 0.18)
+                            : Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: active ? widget.accent : Colors.white12),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(gift.emoji, style: const TextStyle(fontSize: 34)),
+                          Text(gift.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text('${gift.price} coins',
+                              style: const TextStyle(fontSize: 11, color: Colors.white60)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('rooms')
+                  .doc(widget.roomId)
+                  .collection('members')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                final people = (snapshot.data?.docs ?? const [])
+                    .where((member) => member.id != currentUid)
+                    .toList(growable: false);
+                if (receiverUid != null && !people.any((p) => p.id == receiverUid)) {
+                  receiverUid = null;
+                }
+                return DropdownButtonFormField<String>(
+                  key: const Key('gift-recipient'),
+                  initialValue: receiverUid,
+                  decoration: const InputDecoration(
+                    labelText: 'Send to',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  items: people
+                      .map((person) => DropdownMenuItem(
+                            value: person.id,
+                            child: Text((person.data()['displayName'] ?? 'AVORA User').toString()),
+                          ))
+                      .toList(growable: false),
+                  onChanged: (value) => setState(() => receiverUid = value),
+                  hint: Text(people.isEmpty ? 'Ask a friend to join this room' : 'Choose person'),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Text('Combo'),
+                const SizedBox(width: 10),
+                for (final amount in const [1, 5, 10, 20, 50])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text('×$amount'),
+                      selected: quantity == amount,
+                      onSelected: (_) => setState(() => quantity = amount),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('send-test-gift'),
+                onPressed: receiverUid == null || sending ? null : _send,
+                icon: const Icon(Icons.auto_awesome),
+                label: Text(
+                  sending
+                      ? 'Sending…'
+                      : 'Send ×$quantity • ${selectedGift.price * quantity} coins',
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Test currency • no cash value • immutable transaction record',
+              style: TextStyle(fontSize: 11, color: Colors.white54),
+            ),
+          ],
+        ),
       ),
     );
   }

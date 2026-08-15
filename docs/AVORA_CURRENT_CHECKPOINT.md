@@ -153,6 +153,18 @@ Never mark placeholder/local-demo behavior as DONE.
 - Owner has full global operational access through both an in-app Power Center and a web panel.
 - Verified badge is separately granted/revoked; it is not automatic with Merchant/Seller role.
 
+## Active Build 23 — test economy and room experience
+
+- Added a fixed, non-withdrawable 100,000 Test Coin wallet created once per tester.
+- Added room-member recipient selection and a four-item original AVORA gift catalog.
+- Added ×1/×5/×10/×20/×50 combo sending without reopening the gift picker.
+- Added atomic sender debit, receiver credit, sent/received totals, and an immutable gift ledger.
+- Added Firestore rules that reject arbitrary wallet edits, duplicate rewrites, and ledger deletion.
+- Compacted 15-seat layouts to preserve visible space for chat, entries, gifts, and effects.
+- Added a visible TEST wallet card so demo currency can never be confused with real money.
+
 ## Exact Next Action
 
-Install Build 17 from APK run #62 and verify Google signup, permanent AVORA ID, logout, and same-account re-login. In parallel, implement and deploy secure Firestore rules for profile save, exact ID search, and persistent rooms—the next backend gate.
+Build and install version 0.1.0+23 on two devices. Confirm account persistence, both wallets,
+same-room presence, recipient selection, one gift and one combo, both balance changes, and
+ledger immutability. AUTH-001 and Build 23 remain IN PROGRESS until this device evidence passes.

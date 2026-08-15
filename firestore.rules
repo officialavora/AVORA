@@ -12,6 +12,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function giftAfter(transactionId) {
+      return getAfter(
+        /databases/$(database)/documents/testGiftLedger/$(transactionId)
+      ).data;
+    }
+
     match /users/{uid} {
       allow read: if owns(uid);
 
@@ -114,6 +120,101 @@ service cloud.firestore {
         && request.resource.data.status == 'open';
       allow read: if signedIn()
         && resource.data.userUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Non-withdrawable demo currency. A wallet can be created once with the
+    // fixed launch allowance. Every later balance movement must be paired with
+    // one immutable gift-ledger document in the same atomic transaction.
+    match /testWallets/{uid} {
+      allow read: if owns(uid);
+
+      allow create: if owns(uid)
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'testCoins', 'testDiamonds', 'sentValue',
+          'receivedValue', 'lastTransactionId', 'environment',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == uid
+        && request.resource.data.testCoins == 100000
+        && request.resource.data.testDiamonds == 0
+        && request.resource.data.sentValue == 0
+        && request.resource.data.receivedValue == 0
+        && request.resource.data.lastTransactionId == 'initial'
+        && request.resource.data.environment == 'test';
+
+      allow update: if signedIn()
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.environment == 'test'
+        && request.resource.data.testDiamonds == resource.data.testDiamonds
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'testCoins', 'sentValue', 'receivedValue',
+          'lastTransactionId', 'updatedAt'
+        ])
+        && existsAfter(
+          /databases/$(database)/documents/testGiftLedger/$(request.resource.data.lastTransactionId)
+        )
+        && giftAfter(request.resource.data.lastTransactionId).status == 'committed'
+        && giftAfter(request.resource.data.lastTransactionId).environment == 'test'
+        && (
+          (uid == request.auth.uid
+            && giftAfter(request.resource.data.lastTransactionId).senderUid == uid
+            && request.resource.data.testCoins
+              == resource.data.testCoins
+                - giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.sentValue
+              == resource.data.sentValue
+                + giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.receivedValue == resource.data.receivedValue)
+          ||
+          (giftAfter(request.resource.data.lastTransactionId).senderUid
+              == request.auth.uid
+            && giftAfter(request.resource.data.lastTransactionId).receiverUid == uid
+            && request.resource.data.testCoins
+              == resource.data.testCoins
+                + giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.receivedValue
+              == resource.data.receivedValue
+                + giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.sentValue == resource.data.sentValue)
+        );
+
+      allow delete: if false;
+    }
+
+    match /testGiftLedger/{transactionId} {
+      allow read: if signedIn()
+        && (resource.data.senderUid == request.auth.uid
+          || resource.data.receiverUid == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'transactionId', 'environment', 'roomId', 'senderUid',
+          'receiverUid', 'giftId', 'giftName', 'giftEmoji', 'unitPrice',
+          'quantity', 'debitedCoins', 'status', 'createdAt'
+        ])
+        && request.resource.data.transactionId == transactionId
+        && request.resource.data.environment == 'test'
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.receiverUid != request.auth.uid
+        && request.resource.data.roomId is string
+        && request.resource.data.giftId is string
+        && request.resource.data.unitPrice is int
+        && request.resource.data.unitPrice > 0
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 1
+        && request.resource.data.quantity <= 99
+        && request.resource.data.debitedCoins
+          == request.resource.data.unitPrice * request.resource.data.quantity
+        && request.resource.data.status == 'committed'
+        && getAfter(
+          /databases/$(database)/documents/testWallets/$(request.resource.data.senderUid)
+        ).data.lastTransactionId == transactionId
+        && getAfter(
+          /databases/$(database)/documents/testWallets/$(request.resource.data.receiverUid)
+        ).data.lastTransactionId == transactionId;
+
       allow update, delete: if false;
     }
 
