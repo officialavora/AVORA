@@ -14,7 +14,7 @@ Do not ask the owner to repeat project history already recorded here.
 - Android first; architecture must remain iOS-compatible
 - Active branch: work/auth-001-google-signin
 - Active pull request: #1
-- Current app version: 0.1.0+13
+- Current app version: 0.1.0+17
 
 ## Permanent delivery rules
 
@@ -62,12 +62,12 @@ Do not ask the owner to repeat project history already recorded here.
 
 ## Current build status
 
-- Active batch: 13
-- Latest feature commit: 63934e156f9d42d41387e0116a29f1d86d26048d
-- APK workflow run #50: SUCCESS
-  https://github.com/officialavora/AVORA/actions/runs/31882408764
-- AAB workflow run #26: SUCCESS
-  https://github.com/officialavora/AVORA/actions/runs/31882408746
+- Active batch: 17
+- Build 16 commit: 3e91707e67d7d704a2c710431a82c7e56e740ef5
+- APK workflow run #56: SUCCESS
+  https://github.com/officialavora/AVORA/actions/runs/31890131368
+- AAB workflow run #32: SUCCESS
+  https://github.com/officialavora/AVORA/actions/runs/31890131343
 - Build 9 device evidence passed cinematic Welcome, Google login, and same permanent ID 10000003.
 - Build 10 added password visibility, autofill/keyboard UX, automated tests, and parallel APK/AAB release verification.
 - Build 11 adds functional room-card navigation, validated room creation, a cinematic room surface, 10-seat UI, and testable mic/speaker states.
@@ -76,17 +76,20 @@ Do not ask the owner to repeat project history already recorded here.
 - Build 12 tests, analyze, APK, and AAB passed. Real-device verification remains required.
 - Build 13 adds the roadmap five-tab shell (Home/Discover/Create/Inbox/Me), functional Home actions, a Create hub, and removes starter/developer-facing Home text.
 - Build 13 tests, analyze, APK, and AAB passed. Real-device verification remains required.
+- Build 16 adds permanent AVORA ID copy, exact numeric user search, USER/OFFICIAL identity surfaces, and public profile levels. Tests, analyze, APK, and AAB passed; real-device verification remains required.
+- Build 17 adds direct Google signup, reconciled email re-login, explicit auth progress, account-route links, and confirmed logout with Google provider cleanup. CI and device verification are pending.
+- Device recording confirms Firestore permission failures currently block user search, profile save, and persistent cross-device rooms. UI-only success must not be treated as backend PASS.
 
 ## AUTH-001 remaining PASS gates
 
-1. Download/install version +13.
+1. Build and install version +17.
 2. Verify login/signup password visibility.
 3. Google login on the signed build.
 4. Same Google account returns the same permanent AVORA ID.
 5. Firestore profile persists.
 6. Logout/login again passes.
 7. No raw technical error reaches the user.
-8. Verify room card opens, room creation validates a name, and the new room screen renders/operates without a crash.
+8. Deploy secure Firestore rules and verify user search, profile save, and room persistence.
 9. Verify country suggestion/change and all four Inbox sections.
 10. Verify Home/Discover/Create/Inbox/Me navigation and Create hub.
 
@@ -147,4 +150,4 @@ Never mark placeholder/local-demo behavior as DONE.
 
 ## Exact Next Action
 
-Inspect GitHub Actions run #38. If it fails, read the exact failed job logs and safely fix the same branch. If it succeeds, provide the APK artifact/internal-test action and request only the real-device verification gates above.
+Push Build 17 to the active branch, inspect both APK and AAB workflows, fix any exact CI failure, then provide the artifact links and focused real-device auth lifecycle checklist. Secure Firestore rules remain the next backend gate.
