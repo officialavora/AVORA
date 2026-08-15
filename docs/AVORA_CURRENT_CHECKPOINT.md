@@ -14,7 +14,7 @@ Do not ask the owner to repeat project history already recorded here.
 - Android first; architecture must remain iOS-compatible
 - Active branch: work/auth-001-google-signin
 - Active pull request: #1
-- Current app version: 0.1.0+9
+- Current app version: 0.1.0+10
 
 ## Permanent delivery rules
 
@@ -62,11 +62,15 @@ Do not ask the owner to repeat project history already recorded here.
 
 ## Current build status
 
-- GitHub Actions run #37 failed at flutter analyze due to missing AvoraFirebaseAuthBridgeError import.
-- Exact failure was fixed.
-- GitHub Actions run #38:
-  https://github.com/officialavora/AVORA/actions/runs/31850431197
-- At the time of this checkpoint, run #38 is in progress.
+- Active batch: 10
+- Latest repair commit: ccd66b9424e40d00601553ba86b3e012003f30ae
+- APK workflow run #43: IN PROGRESS
+  https://github.com/officialavora/AVORA/actions/runs/31855068823
+- AAB workflow run #19: IN PROGRESS
+  https://github.com/officialavora/AVORA/actions/runs/31855068819
+- Build 9 passed analyze and release APK generation.
+- Build 9 device evidence passed cinematic Welcome, Google login, and same permanent ID 10000003.
+- Build 10 adds password visibility, autofill/keyboard UX, automated tests, and parallel APK/AAB release verification.
 
 ## AUTH-001 remaining PASS gates
 
@@ -79,6 +83,28 @@ Do not ask the owner to repeat project history already recorded here.
 7. No raw technical error reaches the user.
 
 AUTH-001 must not be marked DONE before every gate passes.
+
+
+## Roadmap status protocol
+
+Every work report and checkpoint update must classify roadmap items using exactly:
+
+- DONE: code + relevant tests + analyze + build + real-device verification passed.
+- IN PROGRESS: actively being implemented, built, or verified now.
+- PENDING: accepted scope whose prerequisite has not passed yet.
+- BLOCKED: cannot proceed until a named external/configuration/user gate is resolved.
+
+Each release report must include:
+- DONE count
+- IN PROGRESS count
+- PENDING count
+- BLOCKED count
+- active batch/version
+- exact verification checklist
+- exact next engineering action
+
+Never remove a completed item silently. Move it to completed history with its version/commit/evidence.
+Never mark placeholder/local-demo behavior as DONE.
 
 ## Current Roadmap
 
