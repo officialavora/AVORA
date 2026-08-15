@@ -10,6 +10,8 @@ void main() {
     expect(rules, contains("request.resource.data.role == resource.data.role"));
     expect(rules, contains('request.resource.data.ownerUid == request.auth.uid'));
     expect(rules, contains("match /rooms/{roomId}"));
+    expect(rules, contains("match /members/{uid}"));
+    expect(rules, contains("request.resource.data.userUid == uid"));
     expect(rules, contains("match /supportTickets/{ticketId}"));
     expect(rules, contains('allow read, write: if false'));
   });
