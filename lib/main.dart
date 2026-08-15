@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:country_picker/country_picker.dart';
@@ -214,8 +215,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   }
 
   void _openHome(BuildContext context) {
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const MainShell()),
+      (_) => false,
     );
   }
 
@@ -1539,19 +1541,34 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (Firebase.apps.isNotEmpty && user != null) {
         final account = await ensureAvoraAccount();
-        final room = await FirebaseFirestore.instance.collection('rooms').add({
-          'name': roomName,
-          'theme': themeName,
-          'privacy': privacy,
-          'seatCount': seats,
-          'memberCount': 1,
-          'active': true,
-          'ownerUid': user.uid,
-          'ownerAvoraId': account['originalAvoraId'],
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
+        final room = FirebaseFirestore.instance.collection('rooms').doc(user.uid);
+        await FirebaseFirestore.instance.runTransaction((transaction) async {
+          final existing = await transaction.get(room);
+          if (existing.exists) {
+            transaction.update(room, {
+              'name': roomName,
+              'theme': themeName,
+              'privacy': privacy,
+              'seatCount': seats,
+              'active': true,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          } else {
+            transaction.set(room, {
+              'name': roomName,
+              'theme': themeName,
+              'privacy': privacy,
+              'seatCount': seats,
+              'memberCount': 1,
+              'active': true,
+              'ownerUid': user.uid,
+              'ownerAvoraId': account['originalAvoraId'],
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
         });
-        roomId = room.id;
+        roomId = user.uid;
       }
     } on FirebaseException catch (error) {
       if (!mounted) return;
@@ -2475,6 +2492,23 @@ class _UserSearchPageState extends State<UserSearchPage> {
       );
 }
 
+
+ImageProvider<Object>? avoraProfileImage(Map<String, dynamic> account) {
+  final dataUrl = account['photoDataUrl'] as String?;
+  if (dataUrl != null && dataUrl.contains(',')) {
+    try {
+      return MemoryImage(base64Decode(dataUrl.split(',').last));
+    } on FormatException {
+      return null;
+    }
+  }
+  final url = account['photoUrl'] as String?;
+  return url != null && url.isNotEmpty ? NetworkImage(url) : null;
+}
+
+bool hasAvoraProfileImage(Map<String, dynamic> account) =>
+    avoraProfileImage(account) != null;
+
 class PublicProfilePage extends StatelessWidget {
   final Map<String, dynamic> account;
   const PublicProfilePage({super.key, required this.account});
@@ -2493,10 +2527,8 @@ class PublicProfilePage extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 52,
-            backgroundImage: (account['photoUrl'] as String?)?.isNotEmpty == true
-                ? NetworkImage(account['photoUrl'] as String)
-                : null,
-            child: (account['photoUrl'] as String?)?.isNotEmpty == true
+            backgroundImage: avoraProfileImage(account),
+            child: hasAvoraProfileImage(account)
                 ? null
                 : const AvoraLogo(size: 76),
           ),
@@ -2559,25 +2591,27 @@ class _ProfilePageState extends State<ProfilePage> {
     if (user == null || savingPhoto) return;
     final image = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      imageQuality: 72,
-      maxWidth: 1080,
+      imageQuality: 55,
+      maxWidth: 384,
+      maxHeight: 384,
     );
     if (image == null || !mounted) return;
     setState(() => savingPhoto = true);
     try {
-      final ref = FirebaseStorage.instance.ref('profilePhotos/${user.uid}/avatar.jpg');
-      await ref.putFile(File(image.path));
-      final url = await ref.getDownloadURL();
-      await user.updatePhotoURL(url);
+      final bytes = await File(image.path).readAsBytes();
+      if (bytes.length > 650000) {
+        throw const FormatException('Selected photo is too large');
+      }
+      final dataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}';
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'photoUrl': url,
+        'photoDataUrl': dataUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      if (mounted) setState(() => account['photoUrl'] = url);
-    } on FirebaseException {
+      if (mounted) setState(() => account['photoDataUrl'] = dataUrl);
+    } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Profile photo could not be saved. Please retry.'),
+        content: Text('Profile photo could not be saved. Choose a smaller photo and retry.'),
       ));
     } finally {
       if (mounted) setState(() => savingPhoto = false);
@@ -2667,10 +2701,8 @@ class _ProfilePageState extends State<ProfilePage> {
               CircleAvatar(
                 radius: 48,
                 backgroundColor: const Color(0xFF5D36A3),
-                backgroundImage: (account['photoUrl'] as String?)?.isNotEmpty == true
-                    ? NetworkImage(account['photoUrl'] as String)
-                    : null,
-                child: (account['photoUrl'] as String?)?.isNotEmpty == true
+                backgroundImage: avoraProfileImage(account),
+                child: hasAvoraProfileImage(account)
                     ? null
                     : const AvoraLogo(size: 72),
               ),
@@ -2729,13 +2761,22 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 8),
           Center(child: Chip(label: Text(role))),
           const SizedBox(height: 22),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _Stat(value: '0', label: 'Friends'),
-              _Stat(value: '0', label: 'Followers'),
-              _Stat(value: '0', label: 'Following'),
-              _Stat(value: '0', label: 'Visitors'),
+              _Stat(value: (account['friendsCount'] ?? 0).toString(), label: 'Friends'),
+              _Stat(value: (account['followersCount'] ?? 0).toString(), label: 'Followers'),
+              _Stat(value: (account['followingCount'] ?? 0).toString(), label: 'Following'),
+              _Stat(value: (account['visitorsCount'] ?? 0).toString(), label: 'Visitors'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _Stat(value: (account['richLevel'] ?? 0).toString(), label: 'Rich Level'),
+              _Stat(value: (account['charmLevel'] ?? 0).toString(), label: 'Charm Level'),
+              _Stat(value: (account['vipLevel'] ?? 0).toString(), label: 'VIP'),
             ],
           ),
           const SizedBox(height: 24),
