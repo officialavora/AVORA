@@ -16,6 +16,7 @@ import 'services/avora_test_economy_service.dart';
 import 'features/social/avora_social_hub.dart';
 import 'features/room/avora_room_people_sheet.dart';
 import 'features/profile/avora_prestige_showcase.dart';
+import 'features/games/avora_fun_arcade.dart';
 import 'design/avora_cinematic.dart';
 
 Future<void> main() async {
@@ -1435,10 +1436,14 @@ class HomePage extends StatelessWidget {
               icon: Icons.videocam,
               title: 'Live',
               subtitle: 'Coming after the audio-first launch'),
-          const _FeatureTile(
-              icon: Icons.card_giftcard,
-              title: 'Rewards',
-              subtitle: 'Test rewards unlock in the economy batch'),
+          _FeatureTile(
+              icon: Icons.sports_esports_rounded,
+              title: 'Fun Arcade',
+              subtitle: 'Ludo Dice • Double Seven • Lucky Wheel',
+              onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const AvoraFunArcadePage()),
+                  )),
           ],
         ),
       ),
@@ -1593,11 +1598,16 @@ class CreateHubPage extends StatelessWidget {
             title: Text('Start Live'),
             subtitle: Text('Available after the audio-first launch'),
           ),
-          const ListTile(
-            enabled: false,
-            leading: Icon(Icons.sports_esports_outlined),
-            title: Text('Start Game'),
-            subtitle: Text('Games will be enabled through feature flags'),
+          ListTile(
+            key: const Key('create-hub-fun-arcade'),
+            leading: const Icon(Icons.sports_esports_outlined),
+            title: const Text('Open Fun Arcade'),
+            subtitle: const Text('Three free test games ready to play'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => const AvoraFunArcadePage()),
+            ),
           ),
         ],
       ),
