@@ -1452,7 +1452,7 @@ class _HeroCard extends StatelessWidget {
     return const AvoraGlassPanel(
       padding: EdgeInsets.all(22),
       accent: avoraMagenta,
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AvoraPrestigeTitle(
