@@ -21,11 +21,11 @@ void main() {
     expect(find.text('Speaker'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('voice-seat-1')));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.text('You'), findsOneWidget);
 
     await tester.tap(find.text('Speaker'));
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(find.text('Muted'), findsOneWidget);
   });
 

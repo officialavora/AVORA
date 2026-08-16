@@ -35,7 +35,7 @@ void main() {
     expect(find.text('Mic off'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('voice-room-mic')));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('Mic on'), findsOneWidget);
   });
