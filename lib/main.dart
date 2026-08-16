@@ -2282,9 +2282,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
             top: 92,
             left: 16,
             child: AvoraRoomEntryBanner(
-              name: Firebase.apps.isEmpty
-                  ? 'AVORA member'
-                  : FirebaseAuth.instance.currentUser?.displayName ?? 'AVORA member',
+              name: 'AVORA member',
             ),
           ),
         ],
