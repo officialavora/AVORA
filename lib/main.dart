@@ -1636,7 +1636,9 @@ class RoomsPage extends StatelessWidget {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final rooms = snapshot.data!.docs;
+                final rooms = snapshot.data!.docs
+                    .where((room) => room.id == room.data()['ownerUid'])
+                    .toList();
                 if (rooms.isEmpty) {
                   return const _RoomFallback(
                     message: 'No live rooms yet. Start the first room.',
@@ -1654,6 +1656,8 @@ class RoomsPage extends StatelessWidget {
                       themeName: (data['theme'] ?? 'Aurora').toString(),
                       members: (data['memberCount'] as num?)?.toInt() ?? 1,
                       seatCount: (data['seatCount'] as num?)?.toInt() ?? 10,
+                      isOwner: data['ownerUid'] ==
+                          FirebaseAuth.instance.currentUser?.uid,
                     );
                   },
                 );
@@ -1687,6 +1691,7 @@ class _RoomCard extends StatelessWidget {
   final String themeName;
   final int members;
   final int seatCount;
+  final bool isOwner;
 
   const _RoomCard({
     this.roomId,
@@ -1694,6 +1699,7 @@ class _RoomCard extends StatelessWidget {
     required this.themeName,
     required this.members,
     this.seatCount = 10,
+    this.isOwner = false,
   });
 
   @override
@@ -1711,6 +1717,7 @@ class _RoomCard extends StatelessWidget {
               themeName: themeName,
               seatCount: seatCount,
               roomId: roomId,
+              isOwner: isOwner,
             ),
           ),
         ),
@@ -2031,35 +2038,47 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
 
   Future<void> _openRoomControls() async {
     final roomId = widget.roomId;
-    if (!widget.isOwner || roomId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Room controls are available to the room owner.')),
-      );
-      return;
-    }
-    final endRoom = await showModalBottomSheet<bool>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: const Color(0xFF100C1A),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const ListTile(
-              leading: Icon(Icons.admin_panel_settings_outlined),
-              title: Text('Owner room controls'),
-              subtitle: Text('Moderation and seat controls will expand here.'),
+            ListTile(
+              leading: const Icon(Icons.event_seat_outlined),
+              title: const Text('Leave seat'),
+              subtitle: const Text('Stay in the room as a listener'),
+              onTap: () => Navigator.pop(context, 'leave-seat'),
             ),
             ListTile(
-              key: const Key('end-room-action'),
-              leading: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
-              title: const Text('End room'),
-              onTap: () => Navigator.pop(context, true),
+              key: const Key('exit-room-action'),
+              leading: const Icon(Icons.exit_to_app, color: Colors.amberAccent),
+              title: const Text('Exit room'),
+              onTap: () => Navigator.pop(context, 'exit'),
             ),
+            if (widget.isOwner && roomId != null)
+              ListTile(
+                key: const Key('end-room-action'),
+                leading: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+                title: const Text('End room for everyone'),
+                onTap: () => Navigator.pop(context, 'end'),
+              ),
           ]),
         ),
       ),
     );
-    if (endRoom != true || !mounted) return;
+    if (!mounted || action == null) return;
+    if (action == 'leave-seat') {
+      if (!widget.isOwner) await _selectSeat(selectedSeat);
+      return;
+    }
+    if (action == 'exit') {
+      await _leaveRoom();
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    if (action != 'end' || !widget.isOwner || roomId == null) return;
     try {
       await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
         'active': false,
@@ -2102,6 +2121,74 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
     );
   }
 
+  Widget _seatTile(int index, {bool royal = false}) {
+    final active = selectedSeat == index;
+    final isKing = royal && index == 0;
+    final isQueen = royal && index == 1;
+    final size = royal ? 72.0 : (widget.seatCount >= 15 ? 46.0 : 54.0);
+    return InkWell(
+      key: Key('voice-seat-$index'),
+      borderRadius: BorderRadius.circular(28),
+      onTap: () => _selectSeat(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: active
+                    ? [const Color(0xFFFFD77A), const Color(0xFF8C2BFF)]
+                    : [Colors.black54, const Color(0xFF321052)],
+              ),
+              border: Border.all(
+                color: active ? const Color(0xFFFFD77A) : const Color(0xFFC88BFF),
+                width: active ? 3 : 1.4,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (active ? const Color(0xFFFFC861) : const Color(0xFF8C2BFF))
+                      .withValues(alpha: 0.45),
+                  blurRadius: active ? 24 : 12,
+                ),
+              ],
+            ),
+            child: Icon(
+              isKing
+                  ? Icons.workspace_premium
+                  : isQueen
+                      ? Icons.auto_awesome
+                      : active
+                          ? Icons.person
+                          : Icons.mic_none,
+              color: isKing ? const Color(0xFFFFD77A) : Colors.white,
+              size: royal ? 34 : 25,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isKing
+                ? 'King • Host'
+                : isQueen
+                    ? 'Queen • Co-host'
+                    : active
+                        ? 'You'
+                        : 'Seat ${index + 1}',
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: royal ? 12 : 11,
+              fontWeight: royal ? FontWeight.w800 : FontWeight.w500,
+              color: royal ? const Color(0xFFFFD77A) : Colors.white70,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2109,6 +2196,13 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          Image.asset(
+            'assets/rooms/avora_royal_lounge.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            color: Colors.black.withValues(alpha: 0.28),
+            colorBlendMode: BlendMode.darken,
+          ),
           AvoraCinematicBackdrop(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -2149,6 +2243,15 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                         ),
                       ),
                       IconButton(
+                        key: const Key('room-exit'),
+                        tooltip: 'Exit room',
+                        onPressed: () async {
+                          await _leaveRoom();
+                          if (context.mounted) Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.power_settings_new, color: Colors.redAccent),
+                      ),
+                      IconButton(
                         key: const Key('room-reconnect'),
                         tooltip: 'Reconnect',
                         onPressed: joining ? null : _joinRoom,
@@ -2179,64 +2282,46 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                   ),
                 ),
                 Expanded(
-                  child: GridView.builder(
-                    key: const Key('voice-room-seats'),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: widget.seatCount >= 15 ? 5 : 4,
-                      mainAxisSpacing: 3,
-                      crossAxisSpacing: 6,
-                      childAspectRatio: widget.seatCount >= 15 ? 0.88 : 0.98,
-                    ),
-                    itemCount: widget.seatCount,
-                    itemBuilder: (context, index) {
-                      final active = selectedSeat == index;
-                      return InkWell(
-                        key: Key('voice-seat-$index'),
-                        borderRadius: BorderRadius.circular(22),
-                        onTap: () => _selectSeat(index),
-                        child: Column(
+                  child: widget.seatCount >= 15
+                      ? GridView.builder(
+                          key: const Key('voice-room-seats'),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            mainAxisSpacing: 3,
+                            crossAxisSpacing: 6,
+                            childAspectRatio: 0.88,
+                          ),
+                          itemCount: widget.seatCount,
+                          itemBuilder: (context, index) => _seatTile(index),
+                        )
+                      : Column(
+                          key: const Key('voice-room-seats'),
                           children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              width: widget.seatCount >= 15 ? 46 : 52,
-                              height: widget.seatCount >= 15 ? 46 : 52,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: active
-                                    ? accent.withValues(alpha: 0.20)
-                                    : Colors.white.withValues(alpha: 0.06),
-                                border: Border.all(
-                                  color: active ? accent : Colors.white24,
-                                  width: active ? 2.2 : 1,
-                                ),
-                                boxShadow: active
-                                    ? [BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 18)]
-                                    : null,
-                              ),
-                              child: Icon(
-                                index == 0
-                                    ? Icons.workspace_premium
-                                    : active
-                                        ? Icons.person
-                                        : Icons.add,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Expanded(child: _seatTile(0, royal: true)),
+                                const SizedBox(width: 18),
+                                Expanded(child: _seatTile(1, royal: true)),
+                              ],
                             ),
-                            const SizedBox(height: 7),
-                            Text(
-                              index == 0
-                                  ? 'Host'
-                                  : active
-                                      ? 'You'
-                                      : 'Seat ${index + 1}',
-                              maxLines: 1,
-                              style: const TextStyle(fontSize: 11, color: Colors.white70),
+                            const SizedBox(height: 14),
+                            Expanded(
+                              child: GridView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 4,
+                                  mainAxisSpacing: 7,
+                                  crossAxisSpacing: 8,
+                                  childAspectRatio: 0.86,
+                                ),
+                                itemCount: widget.seatCount - 2,
+                                itemBuilder: (context, index) => _seatTile(index + 2),
+                              ),
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
                 ),
                 RoomActivityStrip(roomId: widget.roomId, accent: accent),
                 Container(
@@ -2248,12 +2333,6 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _RoomControl(
-                        key: const Key('voice-room-chat'),
-                        icon: Icons.chat_bubble_outline,
-                        label: 'Chat',
-                        onTap: _openChat,
-                      ),
                       _RoomControl(
                         icon: microphoneEnabled ? Icons.mic : Icons.mic_off,
                         label: microphoneEnabled ? 'Mic on' : 'Mic off',
@@ -2268,8 +2347,20 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                         onTap: () => setState(() => speakerEnabled = !speakerEnabled),
                       ),
                       _RoomControl(
+                        key: const Key('voice-room-chat'),
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Chat',
+                        onTap: _openChat,
+                      ),
+                      _RoomControl(
+                        icon: Icons.more_horiz,
+                        label: 'More',
+                        onTap: _openRoomControls,
+                      ),
+                      _RoomControl(
                         icon: Icons.card_giftcard,
-                        label: 'Gifts',
+                        label: 'Gift',
+                        active: true,
                         onTap: _openGifts,
                       ),
                     ],
