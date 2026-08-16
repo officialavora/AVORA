@@ -2170,12 +2170,12 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            isKing
-                ? 'King • Host'
-                : isQueen
-                    ? 'Queen • Co-host'
-                    : active
-                        ? 'You'
+            active
+                ? 'You'
+                : isKing
+                    ? 'King • Host'
+                    : isQueen
+                        ? 'Queen • Co-host'
                         : 'Seat ${index + 1}',
             maxLines: 1,
             style: TextStyle(
@@ -2296,7 +2296,6 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                           itemBuilder: (context, index) => _seatTile(index),
                         )
                       : Column(
-                          key: const Key('voice-room-seats'),
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -2309,6 +2308,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                             const SizedBox(height: 14),
                             Expanded(
                               child: GridView.builder(
+                                key: const Key('voice-room-seats'),
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 4,
