@@ -1,0 +1,261 @@
+rules_version = '2';
+
+// AVORA rules are deployed automatically from the authenticated GitHub workflow.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function giftAfter(transactionId) {
+      return getAfter(
+        /databases/$(database)/documents/testGiftLedger/$(transactionId)
+      ).data;
+    }
+
+    match /users/{uid} {
+      allow read: if owns(uid);
+
+      allow create: if owns(uid)
+        && request.resource.data.originalAvoraId is int
+        && request.resource.data.role == 'user';
+
+      allow update: if owns(uid)
+        && request.resource.data.originalAvoraId == resource.data.originalAvoraId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+
+    match /publicProfiles/{uid} {
+      allow read: if signedIn();
+
+      allow create: if owns(uid)
+        && request.resource.data.originalAvoraId is int
+        && request.resource.data.keys().hasOnly([
+          'originalAvoraId', 'displayName', 'photoDataUrl', 'photoUrl',
+          'bio', 'country', 'countryCode', 'richLevel', 'charmLevel',
+          'vipLevel', 'friendsCount', 'followersCount', 'followingCount',
+          'verified', 'updatedAt'
+        ]);
+
+      allow update: if owns(uid)
+        && request.resource.data.originalAvoraId == resource.data.originalAvoraId
+        && request.resource.data.keys().hasOnly([
+          'originalAvoraId', 'displayName', 'photoDataUrl', 'photoUrl',
+          'bio', 'country', 'countryCode', 'richLevel', 'charmLevel',
+          'vipLevel', 'friendsCount', 'followersCount', 'followingCount',
+          'verified', 'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /system/counters {
+      allow read: if signedIn();
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastUserId'])
+        && request.resource.data.lastUserId == resource.data.lastUserId + 1
+        && !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.originalAvoraId == request.resource.data.lastUserId;
+      allow create, delete: if false;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && roomId == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.seatCount is int
+        && request.resource.data.seatCount >= 4
+        && request.resource.data.seatCount <= 20
+        && request.resource.data.memberCount == 1
+        && request.resource.data.active == true;
+
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.ownerAvoraId == resource.data.ownerAvoraId
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if signedIn()
+        && resource.data.ownerUid == request.auth.uid;
+
+      match /members/{uid} {
+        function roomOwner() {
+          return signedIn()
+            && get(/databases/$(database)/documents/rooms/$(roomId))
+              .data.ownerUid == request.auth.uid;
+        }
+
+        allow read: if signedIn();
+        allow create: if owns(uid)
+          && request.resource.data.userUid == uid
+          && request.resource.data.seatIndex is int;
+        allow update: if (
+            owns(uid)
+            && resource.data.userUid == uid
+            && request.resource.data.userUid == uid
+          ) || (
+            roomOwner()
+            && request.resource.data.userUid == resource.data.userUid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['moderationMuted', 'lastModeratedAt'])
+          );
+        allow delete: if (
+            owns(uid)
+            && resource.data.userUid == uid
+          ) || roomOwner();
+      }
+
+      match /messages/{messageId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.senderUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /supportTickets/{ticketId} {
+      allow create: if signedIn()
+        && request.resource.data.userUid == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow read: if signedIn()
+        && resource.data.userUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Relationship identities stay private to the profile owner. Public
+    // profile surfaces expose counters only; visitor identities are hidden.
+    match /socialGraphs/{uid}/{category}/{profileUid} {
+      function supportedRelationship() {
+        return category in ['friends', 'followers', 'following', 'visitors'];
+      }
+
+      function relationshipIncludesMe() {
+        return signedIn()
+          && uid != profileUid
+          && (uid == request.auth.uid || profileUid == request.auth.uid);
+      }
+
+      allow read: if owns(uid) && supportedRelationship();
+      allow create, update: if relationshipIncludesMe()
+        && supportedRelationship()
+        && request.resource.data.profileUid == profileUid;
+      allow delete: if relationshipIncludesMe() && supportedRelationship();
+    }
+
+    // Non-withdrawable demo currency. A wallet can be created once with the
+    // fixed launch allowance. Every later balance movement must be paired with
+    // one immutable gift-ledger document in the same atomic transaction.
+    match /testWallets/{uid} {
+      allow read: if owns(uid);
+
+      allow create: if owns(uid)
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'testCoins', 'testDiamonds', 'sentValue',
+          'receivedValue', 'lastTransactionId', 'environment',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == uid
+        && request.resource.data.testCoins == 100000
+        && request.resource.data.testDiamonds == 0
+        && request.resource.data.sentValue == 0
+        && request.resource.data.receivedValue == 0
+        && request.resource.data.lastTransactionId == 'initial'
+        && request.resource.data.environment == 'test';
+
+      allow update: if signedIn()
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.environment == 'test'
+        && request.resource.data.testDiamonds == resource.data.testDiamonds
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'testCoins', 'sentValue', 'receivedValue',
+          'lastTransactionId', 'updatedAt'
+        ])
+        && existsAfter(
+          /databases/$(database)/documents/testGiftLedger/$(request.resource.data.lastTransactionId)
+        )
+        && giftAfter(request.resource.data.lastTransactionId).status == 'committed'
+        && giftAfter(request.resource.data.lastTransactionId).environment == 'test'
+        && (
+          (uid == request.auth.uid
+            && giftAfter(request.resource.data.lastTransactionId).senderUid == uid
+            && request.resource.data.testCoins
+              == resource.data.testCoins
+                - giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.sentValue
+              == resource.data.sentValue
+                + giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.receivedValue == resource.data.receivedValue)
+          ||
+          (giftAfter(request.resource.data.lastTransactionId).senderUid
+              == request.auth.uid
+            && giftAfter(request.resource.data.lastTransactionId).receiverUid == uid
+            && request.resource.data.testCoins
+              == resource.data.testCoins
+                + giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.receivedValue
+              == resource.data.receivedValue
+                + giftAfter(request.resource.data.lastTransactionId).debitedCoins
+            && request.resource.data.sentValue == resource.data.sentValue)
+        );
+
+      allow delete: if false;
+    }
+
+    match /testGiftLedger/{transactionId} {
+      allow read: if signedIn()
+        && (resource.data.senderUid == request.auth.uid
+          || resource.data.receiverUid == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'transactionId', 'environment', 'roomId', 'senderUid',
+          'receiverUid', 'giftId', 'giftName', 'giftEmoji', 'unitPrice',
+          'quantity', 'debitedCoins', 'status', 'createdAt'
+        ])
+        && request.resource.data.transactionId == transactionId
+        && request.resource.data.environment == 'test'
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.receiverUid != request.auth.uid
+        && request.resource.data.roomId is string
+        && request.resource.data.giftId is string
+        && request.resource.data.unitPrice is int
+        && request.resource.data.unitPrice > 0
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 1
+        && request.resource.data.quantity <= 99
+        && request.resource.data.debitedCoins
+          == request.resource.data.unitPrice * request.resource.data.quantity
+        && request.resource.data.status == 'committed'
+        && getAfter(
+          /databases/$(database)/documents/testWallets/$(request.resource.data.senderUid)
+        ).data.lastTransactionId == transactionId
+        && getAfter(
+          /databases/$(database)/documents/testWallets/$(request.resource.data.receiverUid)
+        ).data.lastTransactionId == transactionId;
+
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

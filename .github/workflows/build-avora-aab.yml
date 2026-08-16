@@ -2,6 +2,15 @@ name: Build AVORA AAB
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - work/auth-001-google-signin
+    paths-ignore:
+      - "docs/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -58,6 +67,9 @@ jobs:
           grep -nE 'compileSdkVersion' "$ZEGO_GRADLE"
           grep -qE 'compileSdkVersion[[:space:]]+36' "$ZEGO_GRADLE"
 
+      - name: Run tests
+        run: flutter test
+
       - name: Analyze
         run: flutter analyze
 
@@ -87,7 +99,15 @@ jobs:
             -alias "$AVORA_KEY_ALIAS" >/dev/null
 
       - name: Build release AAB
-        run: flutter build appbundle --release
+        env:
+          AVORA_ZEGO_APP_ID: ${{ secrets.AVORA_ZEGO_APP_ID }}
+          AVORA_ZEGO_APP_SIGN: ${{ secrets.AVORA_ZEGO_APP_SIGN }}
+          AVORA_RTC_TOKEN_ENDPOINT: ${{ secrets.AVORA_RTC_TOKEN_ENDPOINT }}
+        run: |
+          flutter build appbundle --release \
+            --dart-define=AVORA_ZEGO_APP_ID="$AVORA_ZEGO_APP_ID" \
+            --dart-define=AVORA_ZEGO_APP_SIGN="$AVORA_ZEGO_APP_SIGN" \
+            --dart-define=AVORA_RTC_TOKEN_ENDPOINT="$AVORA_RTC_TOKEN_ENDPOINT"
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

@@ -1,0 +1,50 @@
+name: Deploy Firebase Rules
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - work/auth-001-google-signin
+    paths:
+      - firestore.rules
+      - firebase.json
+
+concurrency:
+  group: firebase-rules-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Firebase deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f firebase.json
+          test -f firestore.rules
+          grep -q "rules_version = '2';" firestore.rules
+          grep -q '"rules": "firestore.rules"' firebase.json
+
+      - name: Authenticate Firebase service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT_AVORA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AVORA }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$FIREBASE_SERVICE_ACCOUNT_AVORA"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_AVORA" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Firestore rules
+        run: npx --yes firebase-tools@latest deploy --only firestore:rules --project avora-4ac0c --non-interactive
+
+      - name: Remove temporary credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-service-account.json"
