@@ -14,7 +14,7 @@ void main() {
     expect(find.text('Please enter a room name.'), findsOneWidget);
   });
 
-  testWidgets('voice room exposes seats and testable mic state', (tester) async {
+  testWidgets('voice room exposes royal seats and testable mic state', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: VoiceRoomScreen(
@@ -27,11 +27,12 @@ void main() {
     );
 
     expect(find.text('AVORA Test Room'), findsOneWidget);
-    final seatGrid = tester.widget<GridView>(
+    expect(find.byKey(const Key('voice-seat-0')), findsOneWidget);
+    expect(find.byKey(const Key('voice-seat-1')), findsOneWidget);
+    final lowerSeatGrid = tester.widget<GridView>(
       find.byKey(const Key('voice-room-seats')),
     );
-    expect(seatGrid.semanticChildCount, 10);
-    expect(find.byKey(const Key('voice-seat-0')), findsOneWidget);
+    expect(lowerSeatGrid.semanticChildCount, 8);
     expect(find.text('Mic off'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('voice-room-mic')));
