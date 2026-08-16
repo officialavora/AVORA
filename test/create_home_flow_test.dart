@@ -7,9 +7,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: HomePage()));
 
     await tester.tap(find.text('Voice Rooms'));
-    // The cinematic backdrop intentionally runs continuously. Pump one frame
-    // to complete the synchronous navigation without waiting for it to settle.
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Rooms'), findsOneWidget);
     expect(find.text('Create room'), findsOneWidget);
