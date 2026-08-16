@@ -1449,8 +1449,8 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AvoraGlassPanel(
-      padding: const EdgeInsets.all(22),
+    return const AvoraGlassPanel(
+      padding: EdgeInsets.all(22),
       accent: avoraMagenta,
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2326,15 +2326,13 @@ class _TestGiftSheetState extends State<TestGiftSheet> {
       );
       if (!mounted) return;
       HapticFeedback.heavyImpact();
-      final celebrationContext = Navigator.of(context).context;
-      Navigator.pop(context);
       showAvoraGiftCelebration(
-        celebrationContext,
+        context,
         emoji: selectedGift.emoji,
         giftName: selectedGift.name,
         quantity: quantity,
       );
-      ScaffoldMessenger.of(celebrationContext).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             '${selectedGift.emoji} ${selectedGift.name} ×$quantity sent • '
@@ -2342,6 +2340,7 @@ class _TestGiftSheetState extends State<TestGiftSheet> {
           ),
         ),
       );
+      Navigator.pop(context);
     } catch (error) {
       if (!mounted) return;
       final message = error is StateError || error is ArgumentError
