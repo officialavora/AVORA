@@ -2278,6 +2278,13 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
               ],
             ),
           ),
+          Positioned(
+            top: 92,
+            left: 16,
+            child: AvoraRoomEntryBanner(
+              name: FirebaseAuth.instance.currentUser?.displayName ?? 'AVORA member',
+            ),
+          ),
         ],
       ),
     );
@@ -2317,8 +2324,15 @@ class _TestGiftSheetState extends State<TestGiftSheet> {
       );
       if (!mounted) return;
       HapticFeedback.heavyImpact();
+      final celebrationContext = Navigator.of(context).context;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
+      showAvoraGiftCelebration(
+        celebrationContext,
+        emoji: selectedGift.emoji,
+        giftName: selectedGift.name,
+        quantity: quantity,
+      );
+      ScaffoldMessenger.of(celebrationContext).showSnackBar(
         SnackBar(
           content: Text(
             '${selectedGift.emoji} ${selectedGift.name} ×$quantity sent • '

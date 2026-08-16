@@ -162,3 +162,178 @@ class AvoraPrestigeTitle extends StatelessWidget {
         ],
       );
 }
+
+void showAvoraGiftCelebration(
+  BuildContext context, {
+  required String emoji,
+  required String giftName,
+  required int quantity,
+}) {
+  final overlay = Overlay.of(context, rootOverlay: true);
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (_) => AvoraGiftCelebration(
+      emoji: emoji,
+      giftName: giftName,
+      quantity: quantity,
+      onFinished: () => entry.remove(),
+    ),
+  );
+  overlay.insert(entry);
+}
+
+class AvoraGiftCelebration extends StatefulWidget {
+  const AvoraGiftCelebration({
+    super.key,
+    required this.emoji,
+    required this.giftName,
+    required this.quantity,
+    required this.onFinished,
+  });
+  final String emoji;
+  final String giftName;
+  final int quantity;
+  final VoidCallback onFinished;
+
+  @override
+  State<AvoraGiftCelebration> createState() => _AvoraGiftCelebrationState();
+}
+
+class _AvoraGiftCelebrationState extends State<AvoraGiftCelebration>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2300),
+  )..forward().whenComplete(widget.onFinished);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: Material(
+          color: Colors.transparent,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (_, __) {
+              final value = _controller.value;
+              final entrance = Curves.easeOutBack.transform(math.min(1, value * 2.4));
+              final fade = value < .72 ? 1.0 : (1 - value) / .28;
+              return Opacity(
+                opacity: fade.clamp(0, 1).toDouble(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(color: Colors.black.withValues(alpha: .38)),
+                    for (var i = 0; i < 18; i++)
+                      Positioned(
+                        left: MediaQuery.sizeOf(context).width / 2 +
+                            math.cos(i * .72 + value * 3) * (45 + value * 170),
+                        top: MediaQuery.sizeOf(context).height / 2 +
+                            math.sin(i * .72 + value * 3) * (45 + value * 210),
+                        child: Transform.rotate(
+                          angle: value * 5 + i,
+                          child: Icon(
+                            i.isEven ? Icons.auto_awesome : Icons.star_rounded,
+                            color: i % 3 == 0 ? avoraGold : avoraMagenta,
+                            size: 10 + (i % 4) * 4,
+                          ),
+                        ),
+                      ),
+                    Center(
+                      child: Transform.scale(
+                        scale: entrance,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 26),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(colors: [
+                              avoraGold.withValues(alpha: .34),
+                              avoraRoyal.withValues(alpha: .18),
+                              Colors.transparent,
+                            ]),
+                            boxShadow: const [
+                              BoxShadow(color: Color(0xAAE154FF), blurRadius: 70, spreadRadius: 14),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(widget.emoji, style: const TextStyle(fontSize: 96)),
+                              Text(widget.giftName,
+                                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                              Text('COMBO ×${widget.quantity}',
+                                  style: const TextStyle(
+                                    color: avoraGold,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 2,
+                                  )),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+}
+
+class AvoraRoomEntryBanner extends StatefulWidget {
+  const AvoraRoomEntryBanner({
+    super.key,
+    required this.name,
+    this.prestige = 'NOBLE ENTRY',
+  });
+  final String name;
+  final String prestige;
+
+  @override
+  State<AvoraRoomEntryBanner> createState() => _AvoraRoomEntryBannerState();
+}
+
+class _AvoraRoomEntryBannerState extends State<AvoraRoomEntryBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SlideTransition(
+        position: Tween(begin: const Offset(-1.2, 0), end: Offset.zero).animate(
+          CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+        ),
+        child: FadeTransition(
+          opacity: _controller,
+          child: AvoraGlassPanel(
+            radius: 18,
+            accent: avoraGold,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.workspace_premium_rounded, color: avoraGold),
+              const SizedBox(width: 9),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.prestige,
+                    style: const TextStyle(color: avoraGold, fontSize: 10, letterSpacing: 1.6)),
+                Text('${widget.name} entered the room',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+              ]),
+            ]),
+          ),
+        ),
+      );
+}
