@@ -2278,7 +2278,7 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
               ],
             ),
           ),
-          Positioned(
+          const Positioned(
             top: 92,
             left: 16,
             child: AvoraRoomEntryBanner(
