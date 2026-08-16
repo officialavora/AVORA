@@ -13,6 +13,7 @@ import 'services/avora_country_suggestion.dart';
 import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 import 'services/avora_test_economy_service.dart';
+import 'features/social/avora_social_hub.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -3272,10 +3273,10 @@ class _ProfilePageState extends State<ProfilePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _Stat(value: (account['friendsCount'] ?? 0).toString(), label: 'Friends'),
-              _Stat(value: (account['followersCount'] ?? 0).toString(), label: 'Followers'),
-              _Stat(value: (account['followingCount'] ?? 0).toString(), label: 'Following'),
-              _Stat(value: (account['visitorsCount'] ?? 0).toString(), label: 'Visitors'),
+              _SocialStat(account: account, category: AvoraSocialCategory.friends),
+              _SocialStat(account: account, category: AvoraSocialCategory.followers),
+              _SocialStat(account: account, category: AvoraSocialCategory.visitors),
+              _SocialStat(account: account, category: AvoraSocialCategory.gifters),
             ],
           ),
           const SizedBox(height: 20),
@@ -3373,4 +3374,34 @@ class _Stat extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SocialStat extends StatelessWidget {
+  const _SocialStat({required this.account, required this.category});
+  final Map<String, dynamic> account;
+  final AvoraSocialCategory category;
+
+  int get count => switch (category) {
+        AvoraSocialCategory.friends => (account['friendsCount'] as num?)?.toInt() ?? 0,
+        AvoraSocialCategory.followers => (account['followersCount'] as num?)?.toInt() ?? 0,
+        AvoraSocialCategory.following => (account['followingCount'] as num?)?.toInt() ?? 0,
+        AvoraSocialCategory.visitors => (account['visitorsCount'] as num?)?.toInt() ?? 0,
+        AvoraSocialCategory.gifters => (account['giftersCount'] as num?)?.toInt() ?? 0,
+      };
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        key: Key('social-${category.name}'),
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AvoraSocialHubPage(account: account, initialCategory: category),
+        )),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Column(children: [
+            Text('$count', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            Text(category.label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          ]),
+        ),
+      );
 }

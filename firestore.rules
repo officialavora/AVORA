@@ -123,6 +123,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Relationship identities stay private to the profile owner. Public
+    // profile surfaces expose counters only; visitor identities are hidden.
+    match /socialGraphs/{uid}/{category}/{profileUid} {
+      allow read: if owns(uid)
+        && category in ['friends', 'followers', 'following', 'visitors'];
+      allow create, update, delete: if false;
+    }
+
     // Non-withdrawable demo currency. A wallet can be created once with the
     // fixed launch allowance. Every later balance movement must be paired with
     // one immutable gift-ledger document in the same atomic transaction.
