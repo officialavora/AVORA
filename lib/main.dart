@@ -14,6 +14,7 @@ import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 import 'services/avora_test_economy_service.dart';
 import 'features/social/avora_social_hub.dart';
+import 'features/profile/avora_prestige_showcase.dart';
 import 'design/avora_cinematic.dart';
 
 Future<void> main() async {
@@ -3174,6 +3175,11 @@ class PublicProfilePage extends StatelessWidget {
             _Stat(value: (account['followingCount'] ?? 0).toString(), label: 'Following'),
           ]),
           const SizedBox(height: 22),
+          AvoraPrestigeShowcase(
+            account: account,
+            photo: avoraProfileImage(account),
+          ),
+          const SizedBox(height: 22),
           if ((account['bio'] as String?)?.trim().isNotEmpty == true)
             Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(account['bio'] as String))),
         ],
@@ -3417,6 +3423,12 @@ class _ProfilePageState extends State<ProfilePage> {
               _Stat(value: (account['charmLevel'] ?? 0).toString(), label: 'Charm Level'),
               _Stat(value: (account['vipLevel'] ?? 0).toString(), label: 'VIP'),
             ],
+          ),
+          const SizedBox(height: 24),
+          AvoraPrestigeShowcase(
+            account: account,
+            photo: avoraProfileImage(account),
+            onPhotoTap: savingPhoto ? null : _changePhoto,
           ),
           const SizedBox(height: 24),
           const _FeatureTile(
