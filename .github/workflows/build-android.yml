@@ -99,7 +99,15 @@ jobs:
             -alias "$AVORA_KEY_ALIAS" >/dev/null
 
       - name: Build release APK
-        run: flutter build apk --release --target-platform android-arm64
+        env:
+          AVORA_ZEGO_APP_ID: ${{ secrets.AVORA_ZEGO_APP_ID }}
+          AVORA_ZEGO_APP_SIGN: ${{ secrets.AVORA_ZEGO_APP_SIGN }}
+          AVORA_RTC_TOKEN_ENDPOINT: ${{ secrets.AVORA_RTC_TOKEN_ENDPOINT }}
+        run: |
+          flutter build apk --release --target-platform android-arm64 \
+            --dart-define=AVORA_ZEGO_APP_ID="$AVORA_ZEGO_APP_ID" \
+            --dart-define=AVORA_ZEGO_APP_SIGN="$AVORA_ZEGO_APP_SIGN" \
+            --dart-define=AVORA_RTC_TOKEN_ENDPOINT="$AVORA_RTC_TOKEN_ENDPOINT"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
