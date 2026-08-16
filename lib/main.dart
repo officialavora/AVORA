@@ -14,6 +14,7 @@ import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 import 'services/avora_test_economy_service.dart';
 import 'features/social/avora_social_hub.dart';
+import 'features/room/avora_room_people_sheet.dart';
 import 'features/profile/avora_prestige_showcase.dart';
 import 'design/avora_cinematic.dart';
 
@@ -2021,6 +2022,26 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
     );
   }
 
+  void _openPeople() {
+    final roomId = widget.roomId;
+    if (roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Join a saved room to view people.')),
+      );
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF100C1A),
+      builder: (_) => AvoraRoomPeopleSheet(
+        roomId: roomId,
+        isOwner: widget.isOwner,
+        accent: accent,
+      ),
+    );
+  }
+
   void _openGifts() {
     final roomId = widget.roomId;
     if (roomId == null) {
@@ -2242,6 +2263,12 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
                             _presenceLabel(),
                           ],
                         ),
+                      ),
+                      IconButton(
+                        key: const Key('room-people'),
+                        tooltip: 'People',
+                        onPressed: _openPeople,
+                        icon: const Icon(Icons.group_outlined),
                       ),
                       IconButton(
                         key: const Key('room-exit'),

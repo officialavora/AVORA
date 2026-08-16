@@ -96,15 +96,30 @@ service cloud.firestore {
         && resource.data.ownerUid == request.auth.uid;
 
       match /members/{uid} {
+        function roomOwner() {
+          return signedIn()
+            && get(/databases/$(database)/documents/rooms/$(roomId))
+              .data.ownerUid == request.auth.uid;
+        }
+
         allow read: if signedIn();
         allow create: if owns(uid)
           && request.resource.data.userUid == uid
           && request.resource.data.seatIndex is int;
-        allow update: if owns(uid)
-          && resource.data.userUid == uid
-          && request.resource.data.userUid == uid;
-        allow delete: if owns(uid)
-          && resource.data.userUid == uid;
+        allow update: if (
+            owns(uid)
+            && resource.data.userUid == uid
+            && request.resource.data.userUid == uid
+          ) || (
+            roomOwner()
+            && request.resource.data.userUid == resource.data.userUid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['moderationMuted', 'lastModeratedAt'])
+          );
+        allow delete: if (
+            owns(uid)
+            && resource.data.userUid == uid
+          ) || roomOwner();
       }
 
       match /messages/{messageId} {
@@ -127,9 +142,21 @@ service cloud.firestore {
     // Relationship identities stay private to the profile owner. Public
     // profile surfaces expose counters only; visitor identities are hidden.
     match /socialGraphs/{uid}/{category}/{profileUid} {
-      allow read: if owns(uid)
-        && category in ['friends', 'followers', 'following', 'visitors'];
-      allow create, update, delete: if false;
+      function supportedRelationship() {
+        return category in ['friends', 'followers', 'following', 'visitors'];
+      }
+
+      function relationshipIncludesMe() {
+        return signedIn()
+          && uid != profileUid
+          && (uid == request.auth.uid || profileUid == request.auth.uid);
+      }
+
+      allow read: if owns(uid) && supportedRelationship();
+      allow create, update: if relationshipIncludesMe()
+        && supportedRelationship()
+        && request.resource.data.profileUid == profileUid;
+      allow delete: if relationshipIncludesMe() && supportedRelationship();
     }
 
     // Non-withdrawable demo currency. A wallet can be created once with the
