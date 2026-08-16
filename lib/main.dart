@@ -14,6 +14,7 @@ import 'services/avora_firebase_auth_bridge.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 import 'services/avora_test_economy_service.dart';
 import 'features/social/avora_social_hub.dart';
+import 'design/avora_cinematic.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -129,7 +130,25 @@ class AvoraApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0D0A1A),
+        scaffoldBackgroundColor: avoraVoid,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFF0B0713).withValues(alpha: 0.96),
+          indicatorColor: avoraRoyal.withValues(alpha: 0.26),
+          height: 66,
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white.withValues(alpha: 0.055),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
         ),
@@ -1377,9 +1396,10 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
+      body: AvoraCinematicBackdrop(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
           const _HeroCard(),
           const SizedBox(height: 12),
           const _TestWalletCard(),
@@ -1417,7 +1437,8 @@ class HomePage extends StatelessWidget {
               icon: Icons.card_giftcard,
               title: 'Rewards',
               subtitle: 'Test rewards unlock in the economy batch'),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1428,23 +1449,22 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AvoraGlassPanel(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF5E35B1), Color(0xFF8E24AA), Color(0xFF1565C0)],
-        ),
-      ),
+      accent: avoraMagenta,
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('AVORA',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-          SizedBox(height: 6),
-          Text('Voice • Connect • Celebrate'),
-          SizedBox(height: 30),
-          Text('Enter a room. Meet your people.'),
+          AvoraPrestigeTitle(
+            title: 'AVORA',
+            subtitle: 'VOICE • LIVE • CONNECT • CELEBRATE',
+          ),
+          SizedBox(height: 26),
+          Row(children: [
+            Icon(Icons.auto_awesome_rounded, color: avoraGold, size: 18),
+            SizedBox(width: 8),
+            Text('Your world comes alive here.'),
+          ]),
         ],
       ),
     );
@@ -2089,12 +2109,17 @@ class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.topCenter,
-                radius: 1.15,
-                colors: [accent.withValues(alpha: 0.24), const Color(0xFF07050D)],
+          AvoraCinematicBackdrop(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.topCenter,
+                  radius: 1.15,
+                  colors: [
+                    accent.withValues(alpha: 0.30),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
@@ -3202,9 +3227,10 @@ class _ProfilePageState extends State<ProfilePage> {
         title: const Text('Profile'),
         actions: [IconButton(key: const Key('edit-profile'), tooltip: 'Edit profile', onPressed: _editProfile, icon: const Icon(Icons.edit_outlined))],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
+      body: AvoraCinematicBackdrop(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
           Center(
             child: Stack(children: [
               CircleAvatar(
@@ -3329,7 +3355,8 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: const Icon(Icons.logout),
             label: const Text('Sign out'),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
