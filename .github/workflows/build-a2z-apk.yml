@@ -4,7 +4,7 @@ on:
   push:
     branches: [work/a2z-final-apk]
     paths:
-      - '.github/a2z-overlay.b64'
+      - '.github/a2z-overlay.part04'
 
 permissions:
   contents: read
@@ -19,14 +19,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode .github/a2z-overlay.b64 > /tmp/a2z.tar.gz
+          cat .github/a2z-overlay.part00 .github/a2z-overlay.part01 .github/a2z-overlay.part02 .github/a2z-overlay.part03 .github/a2z-overlay.part04 > /tmp/a2z.b64
+          base64 --decode /tmp/a2z.b64 > /tmp/a2z.tar.gz
           tar -xzf /tmp/a2z.tar.gz -C .
           test -f lib/core/avora_game_catalog_43.dart
           test -f lib/core/avora_role_visibility_policy.dart
           test -f lib/core/avora_role_prestige_catalog.dart
           test -f lib/core/avora_a2z_master_coverage.dart
           grep -q "AvoraRoomPreviewScreen" lib/main.dart
-          grep -q "greedyLine" lib/core/avora_game_catalog_43.dart || grep -qi "greedy" lib/core/avora_game_catalog_43.dart
+          grep -qi "greedy" lib/core/avora_game_catalog_43.dart
+          grep -qi "ferris" lib/core/avora_game_catalog_43.dart
+          grep -qi "seller" lib/core/avora_role_prestige_catalog.dart
+          grep -qi "agency" lib/core/avora_role_visibility_policy.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -59,6 +63,9 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$AVORA_KEYSTORE_BASE64"
+          test -n "$AVORA_KEYSTORE_PASSWORD"
+          test -n "$AVORA_KEY_PASSWORD"
+          test -n "$AVORA_KEY_ALIAS"
           printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
           cat > android/key.properties <<EOF
           storePassword=$AVORA_KEYSTORE_PASSWORD
