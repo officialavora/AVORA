@@ -21,6 +21,7 @@ jobs:
           set -euo pipefail
           cat .github/a2z-xz-00 .github/a2z-xz-01 .github/a2z-xz-02 .github/a2z-xz-03 .github/a2z-xz-04 .github/a2z-xz-05 .github/a2z-xz-06 .github/a2z-xz-07 .github/a2z-xz-08 .github/a2z-xz-09 .github/a2z-xz-10 .github/a2z-xz-11 > /tmp/a2z.xz.b64
           base64 --decode /tmp/a2z.xz.b64 > /tmp/a2z.tar.xz
+          echo "feaeed8ca4dcf523bb1d482f11cfe8edbaa0bed54b4cc8d50224299e39919607  /tmp/a2z.tar.xz" | sha256sum -c -
           tar -xJf /tmp/a2z.tar.xz -C .
           test -f lib/core/avora_game_catalog_43.dart
           test -f lib/core/avora_role_visibility_policy.dart
