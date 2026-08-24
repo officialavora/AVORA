@@ -1,0 +1,81 @@
+name: AVORA A2Z APK Test
+
+on:
+  push:
+    branches: [work/a2z-final-apk]
+    paths:
+      - '.github/a2z-overlay.b64'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply A2Z overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .github/a2z-overlay.b64 > /tmp/a2z.tar.gz
+          tar -xzf /tmp/a2z.tar.gz -C .
+          test -f lib/core/avora_game_catalog_43.dart
+          test -f lib/core/avora_role_visibility_policy.dart
+          test -f lib/core/avora_role_prestige_catalog.dart
+          test -f lib/core/avora_a2z_master_coverage.dart
+          grep -q "AvoraRoomPreviewScreen" lib/main.dart
+          grep -q "greedyLine" lib/core/avora_game_catalog_43.dart || grep -qi "greedy" lib/core/avora_game_catalog_43.dart
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.0'
+          cache: true
+          pub-cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Patch ZEGO Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZEGO_DIR="$(find "$PUB_CACHE/hosted/pub.dev" -maxdepth 1 -type d -name 'zego_express_engine-*' -print -quit)"
+          test -n "$ZEGO_DIR"
+          ZEGO_GRADLE="$ZEGO_DIR/android/build.gradle"
+          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_GRADLE"
+      - name: Analyze
+        run: flutter analyze
+      - name: Prepare signing
+        shell: bash
+        env:
+          AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
+          AVORA_KEYSTORE_PASSWORD: ${{ secrets.AVORA_KEYSTORE_PASSWORD }}
+          AVORA_KEY_PASSWORD: ${{ secrets.AVORA_KEY_PASSWORD }}
+          AVORA_KEY_ALIAS: ${{ secrets.AVORA_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$AVORA_KEYSTORE_BASE64"
+          printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
+          cat > android/key.properties <<EOF
+          storePassword=$AVORA_KEYSTORE_PASSWORD
+          keyPassword=$AVORA_KEY_PASSWORD
+          keyAlias=$AVORA_KEY_ALIAS
+          storeFile=avora-upload-key.jks
+          EOF
+      - name: Build signed APK
+        run: flutter build apk --release --target-platform android-arm64
+      - name: Verify APK exists
+        run: test -s build/app/outputs/flutter-apk/app-release.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AVORA-A2Z-final-test-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+          if-no-files-found: error
+      - name: Cleanup signing
+        if: always()
+        run: rm -f android/key.properties android/app/avora-upload-key.jks
