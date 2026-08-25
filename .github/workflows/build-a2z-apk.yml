@@ -7,7 +7,7 @@ on:
       - '.github/workflows/build-a2z-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -23,7 +23,6 @@ jobs:
           base64 --decode /tmp/a2z.xz.b64 > /tmp/a2z.tar.xz
           echo "feaeed8ca4dcf523bb1d482f11cfe8edbaa0bed54b4cc8d50224299e39919607  /tmp/a2z.tar.xz" | sha256sum -c -
           tar -xJf /tmp/a2z.tar.xz -C .
-          # Source-level fixes found by the first real Flutter analysis pass.
           sed -i "1{/import 'avora_roles.dart';/d;}" lib/core/avora_role_visibility_policy.dart
           python3 - <<'PY'
           from pathlib import Path
@@ -98,6 +97,15 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
           if-no-files-found: error
+      - name: Publish permanent testing APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-A2Z-final-test.apk
+          gh release delete avora-a2z-final-test --cleanup-tag -y || true
+          gh release create avora-a2z-final-test AVORA-A2Z-final-test.apk --target "$GITHUB_SHA" --title "AVORA A2Z Final Test APK" --notes "Signed AVORA A2Z testing APK. Not published to Google Play. Voice/RTC may be tested separately; this build is for application feature validation."
       - name: Cleanup signing
         if: always()
         run: rm -f android/key.properties android/app/avora-upload-key.jks
