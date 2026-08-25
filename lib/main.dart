@@ -687,24 +687,27 @@ class HomePage extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          _HeroCard(),
-          SizedBox(height: 18),
-          Text('Discover',
+        children: [
+          const _HeroCard(),
+          const SizedBox(height: 18),
+          const Text('Discover',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           _FeatureTile(
               icon: Icons.mic,
               title: 'Voice Rooms',
-              subtitle: 'Join conversations and communities'),
+              subtitle: 'Join conversations and communities',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VoiceRoomScreen(roomName: 'Welcome to AVORA', seatCount: 10)))),
           _FeatureTile(
               icon: Icons.videocam,
               title: 'Live',
-              subtitle: 'Video and interactive live rooms — planned'),
+              subtitle: 'Discover live creators and events',
+              onTap: () => _openFeature(context, 'Live', Icons.videocam, const ['Live rooms will appear here when creators start streaming.'])),
           _FeatureTile(
               icon: Icons.card_giftcard,
               title: 'Rewards',
-              subtitle: 'Tasks, levels and rewards — planned'),
+              subtitle: 'Daily tasks, levels and rewards',
+              onTap: () => _openFeature(context, 'Rewards', Icons.card_giftcard, const ['Daily check-in', 'Join a room', 'Complete your profile'])),
         ],
       ),
     );
@@ -732,7 +735,7 @@ class _HeroCard extends StatelessWidget {
           SizedBox(height: 6),
           Text('Your world. Your voice.'),
           SizedBox(height: 30),
-          Text('Starter build v0.1'),
+          Text('Voice • Community • Entertainment'),
         ],
       ),
     );
@@ -743,17 +746,20 @@ class _FeatureTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _FeatureTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: onTap,
         leading: CircleAvatar(child: Icon(icon)),
         title: Text(title),
         subtitle: Text(subtitle),
@@ -805,6 +811,9 @@ class _RoomCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => VoiceRoomScreen(roomName: name, seatCount: 10),
+        )),
         leading: const CircleAvatar(child: Icon(Icons.mic)),
         title: Text(name),
         subtitle: Text('$themeName theme • $members online'),
@@ -822,6 +831,7 @@ class CreateRoomScreen extends StatefulWidget {
 }
 
 class _CreateRoomScreenState extends State<CreateRoomScreen> {
+  final roomName = TextEditingController();
   String themeName = 'Aurora';
   String privacy = 'Public';
   int seats = 10;
@@ -833,8 +843,9 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const TextField(
-            decoration: InputDecoration(labelText: 'Room name *'),
+          TextField(
+            controller: roomName,
+            decoration: const InputDecoration(labelText: 'Room name *'),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -873,9 +884,16 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
           const SizedBox(height: 20),
           FilledButton(
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Room created')),
-              );
+              final name = roomName.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Enter a room name')),
+                );
+                return;
+              }
+              Navigator.of(context).pushReplacement(MaterialPageRoute(
+                builder: (_) => VoiceRoomScreen(roomName: name, seatCount: seats),
+              ));
             },
             child: const Text('Create room'),
           ),
@@ -892,8 +910,13 @@ class MessagesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Messages')),
-      body: const Center(
-        child: Text('Notifications • System Notice • Contact Us • Chats'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _FeatureTile(icon: Icons.notifications, title: 'Notifications', subtitle: 'Room invites, follows and rewards', onTap: () => _openFeature(context, 'Notifications', Icons.notifications, const ['Welcome to AVORA', 'Your account is ready', 'Community rules are active'])),
+          _FeatureTile(icon: Icons.campaign, title: 'System notices', subtitle: 'Official AVORA updates', onTap: () => _openFeature(context, 'System notices', Icons.campaign, const ['No new maintenance notices'])),
+          _FeatureTile(icon: Icons.support_agent, title: 'Contact support', subtitle: 'Report a problem or request help', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SupportScreen()))),
+        ],
       ),
     );
   }
@@ -956,25 +979,29 @@ class ProfilePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const _FeatureTile(
+          _FeatureTile(
             icon: Icons.account_balance_wallet,
             title: 'Wallet',
             subtitle: 'Coins, diamonds and transactions',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen())),
           ),
-          const _FeatureTile(
+          _FeatureTile(
             icon: Icons.workspace_premium,
             title: 'VIP / Levels',
             subtitle: 'Benefits and premium identity',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VipScreen())),
           ),
-          const _FeatureTile(
+          _FeatureTile(
             icon: Icons.groups,
             title: 'Family / CP',
             subtitle: 'Family and relationship center',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
           ),
-          const _FeatureTile(
+          _FeatureTile(
             icon: Icons.settings,
             title: 'Settings',
             subtitle: 'Privacy, security and preferences',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
           const SizedBox(height: 14),
           FilledButton.tonalIcon(
@@ -1011,4 +1038,198 @@ class _Stat extends StatelessWidget {
       ],
     );
   }
+}
+
+void _openFeature(BuildContext context, String title, IconData icon,
+    List<String> items) {
+  Navigator.of(context).push(MaterialPageRoute(
+    builder: (_) => SimpleFeatureScreen(title: title, icon: icon, items: items),
+  ));
+}
+
+class SimpleFeatureScreen extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<String> items;
+  const SimpleFeatureScreen({super.key, required this.title, required this.icon, required this.items});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(title)),
+        body: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => Card(child: ListTile(
+            leading: CircleAvatar(child: Icon(icon)),
+            title: Text(items[i]),
+          )),
+        ),
+      );
+}
+
+class VoiceRoomScreen extends StatefulWidget {
+  final String roomName;
+  final int seatCount;
+  const VoiceRoomScreen({super.key, required this.roomName, required this.seatCount});
+  @override
+  State<VoiceRoomScreen> createState() => _VoiceRoomScreenState();
+}
+
+class _VoiceRoomScreenState extends State<VoiceRoomScreen> {
+  int? mySeat;
+  bool muted = false;
+  final messages = <String>['AVORA: Welcome to the room'];
+  final message = TextEditingController();
+
+  void send() {
+    final value = message.text.trim();
+    if (value.isEmpty) return;
+    setState(() => messages.add('You: $value'));
+    message.clear();
+  }
+
+  void gifts() => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (_) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Send a gift', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Wrap(spacing: 12, runSpacing: 12, children: [
+              for (final gift in const [('Rose', '🌹', 10), ('Star', '⭐', 50), ('Crown', '👑', 200), ('Rocket', '🚀', 500)])
+                ActionChip(label: Text('${gift.$2} ${gift.$1} · ${gift.$3}'), onPressed: () {
+                  Navigator.pop(context);
+                  setState(() => messages.add('You sent ${gift.$2} ${gift.$1}'));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${gift.$1} sent')));
+                }),
+            ])
+          ]),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(widget.roomName, style: const TextStyle(fontSize: 17)),
+            const Text('Public room', style: TextStyle(fontSize: 11, color: Colors.white70)),
+          ]),
+          actions: [IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert))],
+        ),
+        body: Column(children: [
+          Expanded(flex: 3, child: GridView.builder(
+            padding: const EdgeInsets.all(18),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, mainAxisSpacing: 18, crossAxisSpacing: 12),
+            itemCount: widget.seatCount,
+            itemBuilder: (_, i) {
+              final occupied = mySeat == i;
+              return InkWell(
+                borderRadius: BorderRadius.circular(40),
+                onTap: () => setState(() { mySeat = occupied ? null : i; muted = false; }),
+                child: Column(children: [
+                  CircleAvatar(radius: 25, backgroundColor: occupied ? const Color(0xFF7C4DFF) : Colors.white12,
+                    child: Icon(occupied ? (muted ? Icons.mic_off : Icons.mic) : Icons.add)),
+                  const SizedBox(height: 5),
+                  Text(occupied ? 'You' : 'Seat ${i + 1}', style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
+                ]),
+              );
+            },
+          )),
+          Expanded(flex: 2, child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: messages.length,
+            itemBuilder: (_, i) => Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text(messages[i])),
+          )),
+          SafeArea(top: false, child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(children: [
+              IconButton(onPressed: mySeat == null ? null : () => setState(() => muted = !muted), icon: Icon(muted ? Icons.mic_off : Icons.mic)),
+              Expanded(child: TextField(controller: message, onSubmitted: (_) => send(), decoration: const InputDecoration(hintText: 'Say something…', isDense: true))),
+              IconButton(onPressed: send, icon: const Icon(Icons.send)),
+              IconButton(onPressed: gifts, icon: const Icon(Icons.card_giftcard)),
+            ]),
+          )),
+        ]),
+      );
+}
+
+class WalletScreen extends StatefulWidget {
+  const WalletScreen({super.key});
+  @override
+  State<WalletScreen> createState() => _WalletScreenState();
+}
+class _WalletScreenState extends State<WalletScreen> {
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Wallet')),
+    body: ListView(padding: const EdgeInsets.all(16), children: [
+      Card(child: Padding(padding: const EdgeInsets.all(22), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: const [
+        _Balance(icon: Icons.monetization_on, value: '0', label: 'Coins'),
+        _Balance(icon: Icons.diamond, value: '0', label: 'Diamonds'),
+      ]))),
+      const SizedBox(height: 12),
+      const Text('Recharge', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      GridView.count(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisCount: 2, childAspectRatio: 2.1, children: [
+        for (final amount in const [100, 500, 1000, 5000]) Card(child: InkWell(onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Online payment provider is not active in this test build'))), child: Center(child: Text('🪙 $amount coins')))),
+      ]),
+      const ListTile(leading: Icon(Icons.receipt_long), title: Text('Transactions'), subtitle: Text('No transactions yet')),
+    ]),
+  );
+}
+class _Balance extends StatelessWidget {
+  final IconData icon; final String value; final String label;
+  const _Balance({required this.icon, required this.value, required this.label});
+  @override Widget build(BuildContext context) => Column(children: [Icon(icon, size: 30), Text(value, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)), Text(label)]);
+}
+
+class VipScreen extends StatelessWidget {
+  const VipScreen({super.key});
+  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('VIP & Levels')), body: ListView(padding: const EdgeInsets.all(16), children: [
+    const Card(child: ListTile(leading: CircleAvatar(child: Icon(Icons.person)), title: Text('Level 1'), subtitle: LinearProgressIndicator(value: .1))),
+    const SizedBox(height: 12),
+    for (final vip in const [('VIP 1', 'Profile badge and colored name'), ('VIP 2', 'Premium frame and entry effect'), ('VIP 3', 'Exclusive room identity and mount')])
+      Card(child: ListTile(leading: const Icon(Icons.workspace_premium), title: Text(vip.$1), subtitle: Text(vip.$2), trailing: const Icon(Icons.lock_outline))),
+  ]));
+}
+
+class FamilyScreen extends StatelessWidget {
+  const FamilyScreen({super.key});
+  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Family & CP')), body: ListView(padding: const EdgeInsets.all(16), children: [
+    const Icon(Icons.groups, size: 80), const Center(child: Text('Build your AVORA family', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
+    const SizedBox(height: 12), const Text('Create a family, invite members and grow together.', textAlign: TextAlign.center), const SizedBox(height: 22),
+    FilledButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Family request form opened'))), child: const Text('Create family')),
+    OutlinedButton(onPressed: () => _openFeature(context, 'CP Center', Icons.favorite, const ['No CP relationship connected']), child: const Text('Open CP Center')),
+  ]));
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+  @override State<SettingsScreen> createState() => _SettingsScreenState();
+}
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool notifications = true; bool privateProfile = false; bool hidePresence = false;
+  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Settings')), body: ListView(children: [
+    SwitchListTile(value: notifications, onChanged: (v) => setState(() => notifications = v), title: const Text('Notifications')),
+    SwitchListTile(value: privateProfile, onChanged: (v) => setState(() => privateProfile = v), title: const Text('Private profile')),
+    SwitchListTile(value: hidePresence, onChanged: (v) => setState(() => hidePresence = v), title: const Text('Hide online status')),
+    ListTile(leading: const Icon(Icons.rule), title: const Text('Rules & Regulations'), trailing: const Icon(Icons.chevron_right), onTap: () => showDialog<void>(context: context, builder: (_) => AlertDialog(title: const Text('AVORA Community Rules'), content: SingleChildScrollView(child: Text(AvoraCommunityRules.current.map((e) => '${e.title}\n${e.summary}').join('\n\n'))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))]))),
+    ListTile(leading: const Icon(Icons.support_agent), title: const Text('Help & Support'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SupportScreen()))),
+    ListTile(leading: const Icon(Icons.delete_outline), title: const Text('Delete account'), subtitle: const Text('Request permanent account deletion'), onTap: () => showDialog<void>(context: context, builder: (_) => AlertDialog(title: const Text('Delete account?'), content: const Text('This submits a deletion request. Your account is not deleted until the request is confirmed.'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deletion request recorded for review'))); }, child: const Text('Request deletion'))]))),
+  ]));
+}
+
+class SupportScreen extends StatefulWidget {
+  const SupportScreen({super.key});
+  @override State<SupportScreen> createState() => _SupportScreenState();
+}
+class _SupportScreenState extends State<SupportScreen> {
+  final subject = TextEditingController(); final details = TextEditingController();
+  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Contact support')), body: ListView(padding: const EdgeInsets.all(18), children: [
+    TextField(controller: subject, decoration: const InputDecoration(labelText: 'Subject')),
+    const SizedBox(height: 12), TextField(controller: details, maxLines: 6, decoration: const InputDecoration(labelText: 'Describe the problem')),
+    const SizedBox(height: 18), FilledButton(onPressed: () { if (subject.text.trim().isEmpty || details.text.trim().isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Complete both fields'))); return; } ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Support request prepared'))); }, child: const Text('Submit request')),
+  ]));
 }
