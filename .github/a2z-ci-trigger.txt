@@ -1,1 +1,1 @@
-Trigger AVORA functional video-review APK CI v10 with country picker.
+Trigger AVORA functional video-review APK CI v10 country picker rerun 2.
