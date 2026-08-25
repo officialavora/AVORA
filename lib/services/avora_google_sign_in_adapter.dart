@@ -72,6 +72,15 @@ class AvoraGoogleSignInAdapter {
 
   bool get initialized => _initialized;
 
+  Future<void> signOut() async {
+    try {
+      await googleSignIn.signOut();
+    } catch (_) {
+      // Firebase sign-out remains authoritative. Provider cleanup is best effort
+      // so a platform-specific Google error never traps the user in AVORA.
+    }
+  }
+
   Future<void> initialize() async {
     if (_initialized) {
       return;
@@ -130,10 +139,14 @@ class AvoraGoogleSignInAdapter {
         providerSubjectId: account.id,
         credential: credential,
       );
-    } catch (e) {
-      /// Keep the real v6/platform error visible during testing
-      /// instead of hiding it behind a generic failure.
-      throw Exception('Google Sign-In v6 error: $e');
+    } catch (_) {
+      /// Provider/platform failures must remain a typed auth result.
+      /// They must never crash the cinematic sign-in flow or expose
+      /// raw provider details to the user.
+      return const _AvoraGoogleCredentialResult(
+        success: false,
+        error: AvoraGoogleAuthError.googleAuthenticationFailed,
+      );
     }
   }
 
