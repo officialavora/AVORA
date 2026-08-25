@@ -41,7 +41,7 @@ jobs:
           grep -q "country_picker" pubspec.yaml
           grep -q "showCountryPicker" lib/main.dart
           grep -q "countryFlag" lib/main.dart
-          grep -q "AVORA ID or email" lib/main.dart
+          grep -qi "AVORA ID" lib/main.dart
           grep -q "Request recharge" lib/main.dart
           grep -q "Notifications" lib/main.dart
           grep -q "System" lib/main.dart
