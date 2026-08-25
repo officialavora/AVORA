@@ -41,11 +41,16 @@ jobs:
           test -f lib/core/avora_role_visibility_policy.dart
           test -f lib/core/avora_role_prestige_catalog.dart
           test -f lib/core/avora_a2z_master_coverage.dart
+          test "$(grep -c "AvoraCanonicalGame(id:" lib/core/avora_game_catalog_43.dart)" -eq 43
           grep -q "AvoraRoomPreviewScreen" lib/main.dart
-          grep -qi "greedy" lib/core/avora_game_catalog_43.dart
-          grep -qi "ferris" lib/core/avora_game_catalog_43.dart
+          grep -qi "greedy_line" lib/core/avora_game_catalog_43.dart
+          grep -qi "ferris_wheel" lib/core/avora_game_catalog_43.dart
           grep -qi "seller" lib/core/avora_role_prestige_catalog.dart
+          grep -qi "merchant" lib/core/avora_role_prestige_catalog.dart
           grep -qi "agency" lib/core/avora_role_visibility_policy.dart
+          grep -qi "recharge" lib/core/avora_a2z_master_coverage.dart
+          grep -qi "sending_level" lib/core/avora_a2z_master_coverage.dart
+          grep -qi "receiving_level" lib/core/avora_a2z_master_coverage.dart
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -105,7 +110,21 @@ jobs:
           set -euo pipefail
           cp build/app/outputs/flutter-apk/app-release.apk AVORA-A2Z-final-test.apk
           gh release delete avora-a2z-final-test --cleanup-tag -y || true
-          gh release create avora-a2z-final-test AVORA-A2Z-final-test.apk --target "$GITHUB_SHA" --title "AVORA A2Z Final Test APK" --notes "Signed AVORA A2Z testing APK. Not published to Google Play. Voice/RTC may be tested separately; this build is for application feature validation."
+          gh release create avora-a2z-final-test AVORA-A2Z-final-test.apk --target "$GITHUB_SHA" --title "AVORA A2Z Final Test APK" --notes "Signed AVORA A2Z testing APK. Not published to Google Play."
       - name: Cleanup signing
         if: always()
         run: rm -f android/key.properties android/app/avora-upload-key.jks
+      - name: Record build result
+        if: always()
+        env:
+          BUILD_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/build-results
+          printf '%s\ncommit=%s\nrun=%s\n' "$BUILD_STATUS" "$GITHUB_SHA" "$GITHUB_RUN_ID" > .github/build-results/a2z-latest
+          git config user.name 'avora-build-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add .github/build-results/a2z-latest
+          git commit -m "ci: record AVORA A2Z APK ${BUILD_STATUS}" || true
+          git push origin HEAD:work/a2z-final-apk
