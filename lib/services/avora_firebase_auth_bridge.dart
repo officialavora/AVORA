@@ -17,7 +17,7 @@ enum AvoraFirebaseAuthBridgeError {
 }
 
 class AvoraFirebaseLinkedProvider {
-  final AvoraAuthProvider provider;
+  final AvoraLinkedAuthProvider provider;
   final String providerSubjectId;
 
   const AvoraFirebaseLinkedProvider({
@@ -50,24 +50,24 @@ class AvoraFirebaseAuthBridge {
     FirebaseAuth? auth,
   }) : auth = auth ?? FirebaseAuth.instance;
 
-  static AvoraAuthProvider? mapFirebaseProviderId(
+  static AvoraLinkedAuthProvider? mapFirebaseProviderId(
     String providerId,
   ) {
     switch (providerId) {
       case 'google.com':
-        return AvoraAuthProvider.google;
+        return AvoraLinkedAuthProvider.google;
 
       case 'facebook.com':
-        return AvoraAuthProvider.facebook;
+        return AvoraLinkedAuthProvider.facebook;
 
       case 'apple.com':
-        return AvoraAuthProvider.apple;
+        return AvoraLinkedAuthProvider.apple;
 
       case 'password':
-        return AvoraAuthProvider.email;
+        return AvoraLinkedAuthProvider.email;
 
       case 'phone':
-        return AvoraAuthProvider.phone;
+        return AvoraLinkedAuthProvider.phone;
 
       default:
         return null;
@@ -75,25 +75,25 @@ class AvoraFirebaseAuthBridge {
   }
 
   static String firebaseProviderId(
-    AvoraAuthProvider provider,
+    AvoraLinkedAuthProvider provider,
   ) {
     switch (provider) {
-      case AvoraAuthProvider.google:
+      case AvoraLinkedAuthProvider.google:
         return 'google.com';
 
-      case AvoraAuthProvider.facebook:
+      case AvoraLinkedAuthProvider.facebook:
         return 'facebook.com';
 
-      case AvoraAuthProvider.apple:
+      case AvoraLinkedAuthProvider.apple:
         return 'apple.com';
 
-      case AvoraAuthProvider.email:
+      case AvoraLinkedAuthProvider.email:
         return 'password';
 
-      case AvoraAuthProvider.phone:
+      case AvoraLinkedAuthProvider.phone:
         return 'phone';
 
-      case AvoraAuthProvider.custom:
+      case AvoraLinkedAuthProvider.custom:
         return 'custom';
     }
   }
@@ -215,7 +215,7 @@ class AvoraFirebaseAuthBridge {
   }
 
   Future<AvoraFirebaseBridgeResult> unlinkProvider(
-    AvoraAuthProvider provider,
+    AvoraLinkedAuthProvider provider,
   ) async {
     final user = auth.currentUser;
 
