@@ -1,0 +1,104 @@
+name: AVORA A2Z Build Now
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/a2z-build-now.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout A2Z candidate
+        uses: actions/checkout@v4
+        with:
+          ref: work/a2z-final-apk
+      - name: Apply verified A2Z source payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/a2z-xz-00 .github/a2z-xz-01 .github/a2z-xz-02 .github/a2z-xz-03 .github/a2z-xz-04 .github/a2z-xz-05 .github/a2z-xz-06 .github/a2z-xz-07 .github/a2z-xz-08 .github/a2z-xz-09 .github/a2z-xz-10 .github/a2z-xz-11 > /tmp/a2z.xz.b64
+          base64 --decode /tmp/a2z.xz.b64 > /tmp/a2z.tar.xz
+          echo "feaeed8ca4dcf523bb1d482f11cfe8edbaa0bed54b4cc8d50224299e39919607  /tmp/a2z.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/a2z.tar.xz -C .
+          sed -i "1{/import 'avora_roles.dart';/d;}" lib/core/avora_role_visibility_policy.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/ui/avora_room_preview.dart')
+          s=p.read_text().replace('itemCount: gifts.length','itemCount: _AvoraRoomPreviewScreenState.gifts.length').replace('final g = gifts[i];','final g = _AvoraRoomPreviewScreenState.gifts[i];')
+          p.write_text(s)
+          p=Path('lib/main.dart'); lines=p.read_text().splitlines()
+          for n in (687,692):
+              if n-1 < len(lines): lines[n-1]=lines[n-1].replace('if (!mounted) return;','if (!context.mounted) return;')
+          p.write_text('\n'.join(lines)+'\n')
+          PY
+          test "$(grep -c "AvoraCanonicalGame(id:" lib/core/avora_game_catalog_43.dart)" -eq 43
+          grep -qi greedy_line lib/core/avora_game_catalog_43.dart
+          grep -qi ferris_wheel lib/core/avora_game_catalog_43.dart
+          grep -qi seller lib/core/avora_role_prestige_catalog.dart
+          grep -qi merchant lib/core/avora_role_prestige_catalog.dart
+          grep -qi recharge lib/core/avora_a2z_master_coverage.dart
+          grep -qi sending_level lib/core/avora_a2z_master_coverage.dart
+          grep -qi receiving_level lib/core/avora_a2z_master_coverage.dart
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.0'
+          cache: true
+          pub-cache: true
+      - run: flutter pub get
+      - name: Patch ZEGO Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZEGO_DIR="$(find "$PUB_CACHE/hosted/pub.dev" -maxdepth 1 -type d -name 'zego_express_engine-*' -print -quit)"
+          test -n "$ZEGO_DIR"
+          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_DIR/android/build.gradle"
+      - run: flutter analyze --no-fatal-infos
+      - name: Prepare signing
+        env:
+          AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
+          AVORA_KEYSTORE_PASSWORD: ${{ secrets.AVORA_KEYSTORE_PASSWORD }}
+          AVORA_KEY_PASSWORD: ${{ secrets.AVORA_KEY_PASSWORD }}
+          AVORA_KEY_ALIAS: ${{ secrets.AVORA_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$AVORA_KEYSTORE_BASE64"; test -n "$AVORA_KEYSTORE_PASSWORD"; test -n "$AVORA_KEY_PASSWORD"; test -n "$AVORA_KEY_ALIAS"
+          printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
+          cat > android/key.properties <<EOF
+          storePassword=$AVORA_KEYSTORE_PASSWORD
+          keyPassword=$AVORA_KEY_PASSWORD
+          keyAlias=$AVORA_KEY_ALIAS
+          storeFile=avora-upload-key.jks
+          EOF
+      - name: Build signed APK
+        run: flutter build apk --release --target-platform android-arm64
+      - name: Verify and publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/app/outputs/flutter-apk/app-release.apk
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-A2Z-final-test.apk
+          gh release delete avora-a2z-final-test --cleanup-tag -y || true
+          gh release create avora-a2z-final-test AVORA-A2Z-final-test.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA A2Z Final Test APK" --notes "Signed AVORA A2Z testing APK. Not published to Google Play."
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AVORA-A2Z-final-test-apk
+          path: AVORA-A2Z-final-test.apk
+          retention-days: 30
+      - name: Cleanup signing
+        if: always()
+        run: rm -f android/key.properties android/app/avora-upload-key.jks
