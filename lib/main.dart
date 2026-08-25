@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'features/account/avora_account_centers.dart';
 
 import 'services/avora_country_suggestion.dart';
 import 'services/avora_firebase_auth_bridge.dart';
@@ -3285,6 +3286,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _editProfile() async {
     final name = TextEditingController(text: (account['displayName'] ?? '').toString());
     final bio = TextEditingController(text: (account['bio'] ?? '').toString());
+    final dateOfBirth = TextEditingController(text: (account['dateOfBirth'] ?? '').toString());
     var countryName = (account['country'] ?? 'Select country').toString();
     var countryCode = (account['countryCode'] ?? '').toString();
     final saved = await showDialog<bool>(
@@ -3296,6 +3298,10 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               TextField(controller: name, maxLength: 30, decoration: const InputDecoration(labelText: 'Display name')),
               TextField(controller: bio, maxLength: 160, maxLines: 3, decoration: const InputDecoration(labelText: 'Bio')),
+              TextField(controller: dateOfBirth, readOnly: true, decoration: const InputDecoration(labelText: 'Date of birth', prefixIcon: Icon(Icons.cake_outlined)), onTap: () async {
+                final picked = await showDatePicker(context: context, firstDate: DateTime(1900), lastDate: DateTime.now(), initialDate: DateTime.tryParse(dateOfBirth.text) ?? DateTime(2000));
+                if (picked != null) setDialogState(() => dateOfBirth.text = picked.toIso8601String().split('T').first);
+              }),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.public),
@@ -3327,6 +3333,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final changes = <String, dynamic>{
         'displayName': name.text.trim(),
         'bio': bio.text.trim(),
+        'dateOfBirth': dateOfBirth.text.trim(),
         'country': countryName,
         'countryCode': countryCode,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -3342,6 +3349,7 @@ class _ProfilePageState extends State<ProfilePage> {
         {
           'displayName': name.text.trim(),
           'bio': bio.text.trim(),
+          'dateOfBirth': dateOfBirth.text.trim(),
           'country': countryName,
           'countryCode': countryCode,
           'updatedAt': FieldValue.serverTimestamp(),
@@ -3468,20 +3476,22 @@ class _ProfilePageState extends State<ProfilePage> {
             onPhotoTap: savingPhoto ? null : _changePhoto,
           ),
           const SizedBox(height: 24),
-          const _FeatureTile(
+          _FeatureTile(
             icon: Icons.account_balance_wallet,
             title: 'Wallet',
-            subtitle: 'Coins, diamonds and transactions',
+            subtitle: 'Test coins, gifts and recharge requests',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AvoraRechargeRequestPage())),
           ),
           const _FeatureTile(
             icon: Icons.workspace_premium,
             title: 'VIP / Levels',
             subtitle: 'Benefits and premium identity',
           ),
-          const _FeatureTile(
+          _FeatureTile(
             icon: Icons.groups,
             title: 'Family / CP',
-            subtitle: 'Family and relationship center',
+            subtitle: 'Edit family name and family photo',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AvoraFamilyCenterPage())),
           ),
           const _FeatureTile(
             icon: Icons.settings,
