@@ -1752,6 +1752,18 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
   String privacy = 'Public';
   int seats = 10;
   bool creating = false;
+  String roomPhotoDataUrl = '';
+
+  Future<void> _pickRoomPhoto() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 50, maxWidth: 640, maxHeight: 640);
+    if (image == null) return;
+    final bytes = await File(image.path).readAsBytes();
+    if (bytes.length > 800000) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room photo is too large.')));
+      return;
+    }
+    if (mounted) setState(() => roomPhotoDataUrl = 'data:image/jpeg;base64,${base64Encode(bytes)}');
+  }
 
   @override
   void dispose() {
@@ -1785,6 +1797,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
               'privacy': privacy,
               'seatCount': seats,
               'active': true,
+              'photoDataUrl': roomPhotoDataUrl,
               'updatedAt': FieldValue.serverTimestamp(),
             });
           } else {
@@ -1797,6 +1810,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
               'active': true,
               'ownerUid': user.uid,
               'ownerAvoraId': account['originalAvoraId'],
+              'photoDataUrl': roomPhotoDataUrl,
               'createdAt': FieldValue.serverTimestamp(),
               'updatedAt': FieldValue.serverTimestamp(),
             });
@@ -1834,6 +1848,15 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Center(child: Stack(children: [
+            CircleAvatar(
+              radius: 48,
+              backgroundImage: roomPhotoDataUrl.isEmpty ? null : MemoryImage(base64Decode(roomPhotoDataUrl.split(',').last)),
+              child: roomPhotoDataUrl.isEmpty ? const Icon(Icons.graphic_eq, size: 40) : null,
+            ),
+            Positioned(right: 0, bottom: 0, child: IconButton.filled(onPressed: _pickRoomPhoto, icon: const Icon(Icons.camera_alt))),
+          ])),
+          const SizedBox(height: 16),
           TextField(
             key: const Key('create-room-name'),
             controller: roomNameController,
