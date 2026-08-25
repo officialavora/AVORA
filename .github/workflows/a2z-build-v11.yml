@@ -38,7 +38,6 @@ jobs:
           tar -xJf /tmp/functional.tar.xz -C .
           sed -i 's/itemCount: gifts.length/itemCount: _AvoraRoomPreviewScreenState.gifts.length/' lib/ui/avora_room_preview.dart
           sed -i 's/final g = gifts\[i\]/final g = _AvoraRoomPreviewScreenState.gifts[i]/' lib/ui/avora_room_preview.dart
-          grep -q "version: 0.1.0+10" pubspec.yaml
           grep -q "country_picker" pubspec.yaml
           grep -q "showCountryPicker" lib/main.dart
           grep -q "countryFlag" lib/main.dart
@@ -48,6 +47,15 @@ jobs:
           grep -q "Contacts" lib/main.dart
           grep -q "Edit profile" lib/main.dart
           test "$(grep -c "AvoraCanonicalGame(id:" lib/core/avora_game_catalog_43.dart)" -eq 43
+
+      - name: Lock update identity and monotonic Android version
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.officialavora.app"' android/app/build.gradle.kts
+          BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "AVORA build/versionCode: $BUILD_NUMBER"
 
       - uses: actions/setup-java@v5
         with:
@@ -73,7 +81,7 @@ jobs:
 
       - run: flutter analyze --no-fatal-infos
 
-      - name: Prepare signing
+      - name: Prepare stable Android signing identity
         env:
           AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
           AVORA_KEYSTORE_PASSWORD: ${{ secrets.AVORA_KEYSTORE_PASSWORD }}
@@ -92,36 +100,44 @@ jobs:
           EOF
 
       - name: Build universal signed APK
-        run: flutter build apk --release
+        run: flutter build apk --release --build-number="$BUILD_NUMBER"
 
-      - name: Verify APK
+      - name: Build signed AAB
+        run: flutter build appbundle --release --build-number="$BUILD_NUMBER"
+
+      - name: Verify APK identity/update compatibility
         shell: bash
         run: |
           set -euo pipefail
           APK=build/app/outputs/flutter-apk/app-release.apk
           test -s "$APK"
           BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/signature.txt
+          grep -qi 'certificate SHA-256 digest: c79aa1892a2c6b753049c814c55163a228475ba60431876ed97c776348b894ae' /tmp/signature.txt
           "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/apk-badging.txt
           grep -q "package: name='com.officialavora.app'" /tmp/apk-badging.txt
-          grep -q "versionCode='10'" /tmp/apk-badging.txt
+          grep -q "versionCode='$BUILD_NUMBER'" /tmp/apk-badging.txt
           unzip -t "$APK" >/dev/null
+          test -s build/app/outputs/bundle/release/app-release.aab
 
-      - name: Publish APK release
+      - name: Publish stable update release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          cp build/app/outputs/flutter-apk/app-release.apk AVORA-functional-v11.apk
-          gh release delete avora-functional-v11 --cleanup-tag -y || true
-          gh release create avora-functional-v11 AVORA-functional-v11.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA Functional v11 APK" --notes "Functional video-review fixes plus country picker. Universal signed APK verified by analyze, apksigner, zipalign and package checks."
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-latest.apk
+          cp build/app/outputs/bundle/release/app-release.aab AVORA-latest.aab
+          gh release delete avora-latest-update --cleanup-tag -y || true
+          gh release create avora-latest-update AVORA-latest.apk AVORA-latest.aab --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA Latest Update" --notes "Update-in-place release. Android package remains com.officialavora.app, signing certificate is pinned, and versionCode is monotonic ($BUILD_NUMBER). Install the APK over an existing AVORA install; do not uninstall. AAB is included for Play distribution."
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AVORA-functional-v11-apk
-          path: AVORA-functional-v11.apk
+          name: AVORA-update-safe-build
+          path: |
+            AVORA-latest.apk
+            AVORA-latest.aab
           retention-days: 30
 
       - name: Cleanup signing
