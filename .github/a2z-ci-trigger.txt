@@ -1,1 +1,1 @@
-Trigger AVORA A2Z universal install-fixed APK CI v2.
+Trigger AVORA functional video-review APK CI v10.
