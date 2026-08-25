@@ -1,8 +1,8 @@
 name: AVORA A2Z Build Now
 
 on:
-  issues:
-    types: [opened]
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    if: github.event.issue.title == 'TRIGGER AVORA A2Z APK'
+    if: github.event.pull_request.head.ref == 'build/a2z-ci-trigger'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
