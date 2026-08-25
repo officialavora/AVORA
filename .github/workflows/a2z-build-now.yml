@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -102,3 +103,11 @@ jobs:
       - name: Cleanup signing
         if: always()
         run: rm -f android/key.properties android/app/avora-upload-key.jks
+      - name: Report build result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "[AVORA A2Z BUILD] ${BUILD_STATUS} run ${GITHUB_RUN_ID}" --body "A2Z candidate: work/a2z-final-apk\nWorkflow status: ${BUILD_STATUS}\nRun: ${GITHUB_RUN_ID}\nRelease tag: avora-a2z-final-test"
