@@ -1,0 +1,129 @@
+name: AVORA Functional A2Z Build v11
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.event.pull_request.head.ref == 'build/a2z-ci-trigger'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout A2Z candidate
+        uses: actions/checkout@v4
+        with:
+          ref: work/a2z-final-apk
+
+      - name: Apply A2Z base payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/a2z-xz-00 .github/a2z-xz-01 .github/a2z-xz-02 .github/a2z-xz-03 .github/a2z-xz-04 .github/a2z-xz-05 .github/a2z-xz-06 .github/a2z-xz-07 .github/a2z-xz-08 .github/a2z-xz-09 .github/a2z-xz-10 .github/a2z-xz-11 > /tmp/a2z.xz.b64
+          base64 --decode /tmp/a2z.xz.b64 > /tmp/a2z.tar.xz
+          echo "feaeed8ca4dcf523bb1d482f11cfe8edbaa0bed54b4cc8d50224299e39919607  /tmp/a2z.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/a2z.tar.xz -C .
+          sed -i "1{/import 'avora_roles.dart';/d;}" lib/core/avora_role_visibility_policy.dart
+
+      - name: Apply functional country payload and compile fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/country-fix-00 .github/country-fix-01 .github/country-fix-02 .github/country-fix-03 .github/country-fix-04 .github/country-fix-05 > /tmp/functional.b64
+          base64 --decode /tmp/functional.b64 > /tmp/functional.tar.xz
+          echo "59800dba9c8d91459c6a7c71d025dc3fbb1d168c1797883c6e0b5c81cbea423c  /tmp/functional.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/functional.tar.xz -C .
+          sed -i 's/itemCount: gifts.length/itemCount: _AvoraRoomPreviewScreenState.gifts.length/' lib/ui/avora_room_preview.dart
+          sed -i 's/final g = gifts\[i\]/final g = _AvoraRoomPreviewScreenState.gifts[i]/' lib/ui/avora_room_preview.dart
+          grep -q "version: 0.1.0+10" pubspec.yaml
+          grep -q "country_picker" pubspec.yaml
+          grep -q "showCountryPicker" lib/main.dart
+          grep -q "countryFlag" lib/main.dart
+          grep -qi "AVORA ID" lib/main.dart
+          grep -q "Request recharge" lib/main.dart
+          grep -q "Notifications" lib/main.dart
+          grep -q "Contacts" lib/main.dart
+          grep -q "Edit profile" lib/main.dart
+          test "$(grep -c "AvoraCanonicalGame(id:" lib/core/avora_game_catalog_43.dart)" -eq 43
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.0'
+          cache: true
+          pub-cache: true
+
+      - run: flutter pub get
+
+      - name: Patch ZEGO Android build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZEGO_DIR="$(find "$PUB_CACHE/hosted/pub.dev" -maxdepth 1 -type d -name 'zego_express_engine-*' -print -quit)"
+          test -n "$ZEGO_DIR"
+          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_DIR/android/build.gradle"
+
+      - run: flutter analyze --no-fatal-infos
+
+      - name: Prepare signing
+        env:
+          AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
+          AVORA_KEYSTORE_PASSWORD: ${{ secrets.AVORA_KEYSTORE_PASSWORD }}
+          AVORA_KEY_PASSWORD: ${{ secrets.AVORA_KEY_PASSWORD }}
+          AVORA_KEY_ALIAS: ${{ secrets.AVORA_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$AVORA_KEYSTORE_BASE64"; test -n "$AVORA_KEYSTORE_PASSWORD"; test -n "$AVORA_KEY_PASSWORD"; test -n "$AVORA_KEY_ALIAS"
+          printf '%s' "$AVORA_KEYSTORE_BASE64" | base64 --decode > android/app/avora-upload-key.jks
+          cat > android/key.properties <<EOF
+          storePassword=$AVORA_KEYSTORE_PASSWORD
+          keyPassword=$AVORA_KEY_PASSWORD
+          keyAlias=$AVORA_KEY_ALIAS
+          storeFile=avora-upload-key.jks
+          EOF
+
+      - name: Build universal signed APK
+        run: flutter build apk --release
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/apk-badging.txt
+          grep -q "package: name='com.officialavora.app'" /tmp/apk-badging.txt
+          grep -q "versionCode='10'" /tmp/apk-badging.txt
+          unzip -t "$APK" >/dev/null
+
+      - name: Publish APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-functional-v11.apk
+          gh release delete avora-functional-v11 --cleanup-tag -y || true
+          gh release create avora-functional-v11 AVORA-functional-v11.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA Functional v11 APK" --notes "Functional video-review fixes plus country picker. Universal signed APK verified by analyze, apksigner, zipalign and package checks."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AVORA-functional-v11-apk
+          path: AVORA-functional-v11.apk
+          retention-days: 30
+
+      - name: Cleanup signing
+        if: always()
+        run: rm -f android/key.properties android/app/avora-upload-key.jks
