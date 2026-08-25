@@ -28,16 +28,19 @@ jobs:
           tar -xJf /tmp/a2z.tar.xz -C .
           sed -i "1{/import 'avora_roles.dart';/d;}" lib/core/avora_role_visibility_policy.dart
 
-      - name: Apply video-review functional fixes
+      - name: Apply video-review functional fixes plus country picker
         shell: bash
         run: |
           set -euo pipefail
-          cat .github/functional-fix-00 .github/functional-fix-01 .github/functional-fix-02 .github/functional-fix-03 .github/functional-fix-04 .github/functional-fix-05 .github/functional-fix-06 > /tmp/functional.b64
+          cat .github/country-fix-00 .github/country-fix-01 .github/country-fix-02 .github/country-fix-03 .github/country-fix-04 .github/country-fix-05 > /tmp/functional.b64
           base64 --decode /tmp/functional.b64 > /tmp/functional.tar.xz
-          echo "ee4c90be1ce024f9b6c2ad40667fc0713df09e536bbac5a794a45eff2a2e999e  /tmp/functional.tar.xz" | sha256sum -c -
+          echo "59800dba9c8d91459c6a7c71d025dc3fbb1d168c1797883c6e0b5c81cbea423c  /tmp/functional.tar.xz" | sha256sum -c -
           tar -xJf /tmp/functional.tar.xz -C .
           grep -q "version: 0.1.0+10" pubspec.yaml
           grep -q "flutter_secure_storage" pubspec.yaml
+          grep -q "country_picker" pubspec.yaml
+          grep -q "showCountryPicker" lib/main.dart
+          grep -q "countryFlag" lib/main.dart
           grep -q "AVORA ID or email" lib/main.dart
           grep -q "Request recharge" lib/main.dart
           grep -q "Notifications" lib/main.dart
@@ -115,7 +118,7 @@ jobs:
           set -euo pipefail
           cp build/app/outputs/flutter-apk/app-release.apk AVORA-functional-video-fix.apk
           gh release delete avora-functional-video-fix --cleanup-tag -y || true
-          gh release create avora-functional-video-fix AVORA-functional-video-fix.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA Functional Video Fix APK" --notes "Video-review functional fixes. Universal signed APK, versionCode 10, verified signature/package/alignment. Private testing only."
+          gh release create avora-functional-video-fix AVORA-functional-video-fix.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA Functional Video Fix APK" --notes "Video-review functional fixes plus searchable country picker with flags. Universal signed APK, versionCode 10, verified signature/package/alignment. Private testing only."
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
