@@ -1,1 +1,1 @@
-Trigger AVORA A2Z signed APK CI for work/a2z-final-apk.
+Trigger AVORA A2Z universal install-fixed APK CI v2.
