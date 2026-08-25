@@ -12,7 +12,7 @@ enum AvoraStaffAssignment {
   eventOrganizer,
 }
 
-enum AvoraScopeType {
+enum AvoraCapabilityScopeType {
   self,
   agency,
   team,
@@ -24,14 +24,14 @@ enum AvoraScopeType {
 class AvoraCapabilityProfile {
   final AvoraCommerceRole commerceRole;
   final Set<AvoraStaffAssignment> staffAssignments;
-  final AvoraScopeType scopeType;
+  final AvoraCapabilityScopeType scopeType;
   final String? countryCode;
   final String? regionCode;
 
   const AvoraCapabilityProfile({
     this.commerceRole = AvoraCommerceRole.none,
     this.staffAssignments = const {},
-    this.scopeType = AvoraScopeType.self,
+    this.scopeType = AvoraCapabilityScopeType.self,
     this.countryCode,
     this.regionCode,
   });

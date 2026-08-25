@@ -29,7 +29,7 @@ class AvoraGiftFullSettlementService {
   final AvoraGiftSendOrchestrator _sendOrchestrator;
 
   AvoraGiftFullSettlementResult settle({
-    required AvoraGiftSendRequest request,
+    required AvoraGiftSendCommand request,
     required int receiverShareBps,
   }) {
     final send = _sendOrchestrator.send(request);

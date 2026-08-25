@@ -80,7 +80,7 @@ class AvoraGameDisputeReconstruction {
   final String caseId;
   final String playerAvoraId;
   final AvoraLaunchGameBet bet;
-  final AvoraGameRound round;
+  final AvoraEngineGameRound round;
   final AvoraGameRoundSettlement roundSettlement;
   final AvoraGamePayoutRecord? payout;
 

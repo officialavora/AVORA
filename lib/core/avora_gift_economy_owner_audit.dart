@@ -32,7 +32,7 @@ class AvoraGiftEconomyOwnerAuditService {
   final AvoraGiftOwnerAuditRepository _auditRepository;
 
   Future<AvoraGiftEconomyOwnerAuditResult> execute({
-    required AvoraGiftSendRequest request,
+    required AvoraGiftSendCommand request,
     required int receiverShareBps,
     required DateTime createdAt,
     required AvoraGiftProgressSnapshot currentProgress,

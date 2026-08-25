@@ -1,4 +1,4 @@
-enum AvoraGameCategory {
+enum AvoraGameHubCategory {
   board,
   arcade,
   fishArcade,
@@ -48,13 +48,13 @@ enum AvoraGameRewardKind {
   withdrawableReward,
 }
 
-class AvoraGameDefinition {
+class AvoraGameHubDefinition {
   final String id;
 
   /// Catalog-controlled display name.
   final String displayName;
 
-  final AvoraGameCategory category;
+  final AvoraGameHubCategory category;
   final AvoraGameOutcomeType outcomeType;
 
   final Set<AvoraGameMode> supportedModes;
@@ -72,7 +72,7 @@ class AvoraGameDefinition {
   /// without pretending AVORA owns the game itself.
   final String? externalProviderReference;
 
-  const AvoraGameDefinition({
+  const AvoraGameHubDefinition({
     required this.id,
     required this.displayName,
     required this.category,
@@ -145,7 +145,7 @@ class AvoraGameRewardPolicy {
   const AvoraGameRewardPolicy._();
 
   static AvoraGameRewardDecision evaluate({
-    required AvoraGameDefinition game,
+    required AvoraGameHubDefinition game,
     required AvoraGameRewardDefinition reward,
     required bool identityVerified,
     required bool countryGameEnabled,
@@ -193,8 +193,8 @@ class AvoraGameRewardPolicy {
 class AvoraGameCatalog {
   const AvoraGameCatalog._();
 
-  static List<AvoraGameDefinition> availableForMode({
-    required List<AvoraGameDefinition> games,
+  static List<AvoraGameHubDefinition> availableForMode({
+    required List<AvoraGameHubDefinition> games,
     required AvoraGameMode mode,
   }) {
     return games

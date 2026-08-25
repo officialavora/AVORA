@@ -55,7 +55,7 @@ class AvoraRefundRecoveryBridgeDecision {
 
   /// Instruction only. It must still pass AvoraCoinTreasuryEngine/backend
   /// validation before any balance mutation.
-  final AvoraCoinLedgerEntry? treasuryReversalEntry;
+  final AvoraTreasuryLedgerEntry? treasuryReversalEntry;
 
   /// Scoped hold instruction when consumed value remains unrecovered.
   final AvoraRefundRecoveryHoldDirective? holdDirective;
@@ -119,10 +119,10 @@ class AvoraRefundRecoveryBridge {
       );
     }
 
-    AvoraCoinLedgerEntry? reversalEntry;
+    AvoraTreasuryLedgerEntry? reversalEntry;
 
     if (recoverable > 0) {
-      reversalEntry = AvoraCoinLedgerEntry(
+      reversalEntry = AvoraTreasuryLedgerEntry(
         entryId: 'REFUND-REVERSAL-${liability.liabilityId}',
         type: AvoraCoinMovementType.reversal,
         sourceAccountId: beneficiaryWalletAccountId.trim(),

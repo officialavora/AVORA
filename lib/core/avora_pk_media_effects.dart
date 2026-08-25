@@ -57,7 +57,7 @@ enum AvoraBeautyCapability {
 enum AvoraPkPunishmentEffectType {
   profileOverlay,
   seatOverlay,
-  funnyFrame,
+  comicFrame,
   sticker,
   temporaryBadge,
   micVoiceEffect,

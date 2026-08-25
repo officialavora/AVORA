@@ -156,7 +156,7 @@ class AvoraWholesaleDecision {
   final bool allowed;
   final AvoraWholesaleDenyReason reason;
 
-  final AvoraCoinLedgerEntry? ledgerEntry;
+  final AvoraTreasuryLedgerEntry? ledgerEntry;
   final AvoraWholesaleReceipt? receipt;
 
   /// User Wallet is intentionally handled by normal Recharge,
@@ -277,7 +277,7 @@ class AvoraWholesaleEngine {
       );
     }
 
-    final ledgerEntry = AvoraCoinLedgerEntry(
+    final ledgerEntry = AvoraTreasuryLedgerEntry(
       entryId: entryId,
       type: AvoraCoinMovementType.allocate,
       sourceAccountId: sourceTreasury.accountId,
@@ -382,7 +382,7 @@ class AvoraWholesaleEngine {
       );
     }
 
-    final ledgerEntry = AvoraCoinLedgerEntry(
+    final ledgerEntry = AvoraTreasuryLedgerEntry(
       entryId: entryId,
       type: AvoraCoinMovementType.transfer,
       sourceAccountId: merchantInventory.accountId,

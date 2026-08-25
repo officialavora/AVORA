@@ -77,7 +77,7 @@ class AvoraGameRoundFactory {
   final AvoraGameRoundPolicyBindingLedger _bindingLedger;
   final AvoraGameRoundLedger _roundLedger;
 
-  AvoraGameRound openRound({
+  AvoraEngineGameRound openRound({
     required String roundId,
     required String gameId,
     required AvoraGamePayoutPolicySnapshot gamePolicy,
@@ -110,7 +110,7 @@ class AvoraGameRoundFactory {
       boundAtUtc: openedAtUtc.toUtc(),
     );
 
-    final round = AvoraGameRound(
+    final round = AvoraEngineGameRound(
       roundId: roundId,
       gameId: gameId,
       policyVersion: gamePolicy.policyVersion,

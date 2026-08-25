@@ -126,7 +126,7 @@ class AvoraRoomEntryFxPresetCatalog {
         catalogItem: AvoraRoomEntryFxCatalogItem(
           fxId: 'parrot-funny-entry',
           version: 1,
-          displayName: 'Funny Parrot',
+          displayName: 'Mischief Parrot',
           theme: AvoraRoomEntryFxTheme.custom,
           animationAssetRef: 'entry/animal/parrot/full',
           soundAssetRef: 'sound/animal/parrot/funny',
@@ -147,7 +147,7 @@ class AvoraRoomEntryFxPresetCatalog {
         catalogItem: AvoraRoomEntryFxCatalogItem(
           fxId: 'frog-bounce-entry',
           version: 1,
-          displayName: 'Funny Frog',
+          displayName: 'Bounce Frog',
           theme: AvoraRoomEntryFxTheme.custom,
           animationAssetRef: 'entry/funny/frog/full',
           soundAssetRef: 'sound/funny/frog/croak',

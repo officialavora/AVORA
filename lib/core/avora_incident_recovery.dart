@@ -1,4 +1,4 @@
-enum AvoraIncidentStatus {
+enum AvoraRecoveryIncidentStatus {
   detected,
   investigating,
   frozen,
@@ -51,7 +51,7 @@ class AvoraIncident {
 
   final String title;
 
-  final AvoraIncidentStatus status;
+  final AvoraRecoveryIncidentStatus status;
 
   final AvoraIncidentScopeType scopeType;
 
@@ -98,9 +98,9 @@ class AvoraIncident {
   bool get approvedForExecution {
     return approvedByUserId != null &&
         approvedAt != null &&
-        (status == AvoraIncidentStatus.approved ||
-            status == AvoraIncidentStatus.executing ||
-            status == AvoraIncidentStatus.partiallyCompleted);
+        (status == AvoraRecoveryIncidentStatus.approved ||
+            status == AvoraRecoveryIncidentStatus.executing ||
+            status == AvoraRecoveryIncidentStatus.partiallyCompleted);
   }
 }
 

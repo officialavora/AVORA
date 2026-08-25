@@ -1,11 +1,12 @@
 # AVORA
 
-Mobile-first starter for **AVORA** — a future Android + iOS social voice/video/live platform.
+Mobile-first **AVORA** Android + iOS social voice/video/live platform.
 
-## Locked starter identity
+## Locked identity
 - App name: AVORA
 - Flutter project name: `avora`
-- Android application ID / iOS bundle base: `com.officialavora.avora`
+- Android application ID: `com.officialavora.app`
+- iOS bundle ID: `com.officialavora.avora`
 
 > Keep the package/bundle ID stable once it is registered in Firebase / stores.
 
@@ -20,14 +21,12 @@ Mobile-first starter for **AVORA** — a future Android + iOS social voice/video
 - Android GitHub Actions build workflow
 
 ## Android build
-The GitHub Actions workflow can create the missing Android platform files and build a debug APK automatically.
+The GitHub Actions workflows build AVORA APK and AAB artifacts with the locked Android identity.
 
 ## Firebase
-Firebase is intentionally not wired yet. First register the Android app using:
-`com.officialavora.avora`
-
-Then add Authentication / Firestore carefully in the next version.
+Firebase Authentication and Firestore are connected to the locked Android app identity:
+`com.officialavora.app`
 
 ## Important
-This is a starter UI/build foundation, not the full AVORA production backend.
+This repository contains the current AVORA application foundation; production services remain controlled integrations.
 Economy, rewards, salary, seller wallets, ledgers, moderation, voice/video RTC and admin automation must be added in controlled modules with audit/recovery safeguards.

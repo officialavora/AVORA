@@ -97,7 +97,7 @@ class AvoraControlledGameRoundFactory {
   final AvoraGameRoundFactory _roundFactory;
   final AvoraGameControlEnforcementBridge _enforcementBridge;
 
-  AvoraGameRound openRound({
+  AvoraEngineGameRound openRound({
     required String roundId,
     required String gameId,
     required String countryCode,

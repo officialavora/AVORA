@@ -1,4 +1,4 @@
-enum AvoraAuthProvider {
+enum AvoraLinkedAuthProvider {
   google,
   facebook,
   apple,
@@ -45,7 +45,7 @@ enum AvoraAuthAuditAction {
 }
 
 class AvoraProviderAssertion {
-  final AvoraAuthProvider provider;
+  final AvoraLinkedAuthProvider provider;
 
   /// Stable provider-side subject/user identifier.
   final String providerSubjectId;
@@ -71,7 +71,7 @@ class AvoraLinkedIdentity {
   /// Immutable authoritative AVORA ID.
   final String avoraId;
 
-  final AvoraAuthProvider provider;
+  final AvoraLinkedAuthProvider provider;
   final String providerSubjectId;
 
   final AvoraLinkedIdentityStatus status;
@@ -93,7 +93,7 @@ class AvoraLinkedIdentity {
   bool get active => status == AvoraLinkedIdentityStatus.active;
 
   bool matches({
-    required AvoraAuthProvider provider,
+    required AvoraLinkedAuthProvider provider,
     required String providerSubjectId,
   }) {
     return this.provider == provider &&
@@ -104,7 +104,7 @@ class AvoraLinkedIdentity {
 class AvoraAuthPolicy {
   final String policyVersionId;
 
-  final Set<AvoraAuthProvider> enabledProviders;
+  final Set<AvoraLinkedAuthProvider> enabledProviders;
 
   final bool allowNewAccountCreation;
 
@@ -155,7 +155,7 @@ class AvoraAuthAuditEvent {
 
   final AvoraAuthAuditAction action;
 
-  final AvoraAuthProvider? provider;
+  final AvoraLinkedAuthProvider? provider;
 
   /// Store an internal safe reference/fingerprint,
   /// not raw OAuth/access tokens.
@@ -363,7 +363,7 @@ class AvoraAccountLinkingEngine {
   static AvoraAuthDecision canUnlinkProvider({
     required AvoraAuthPolicy policy,
     required String currentAvoraId,
-    required AvoraAuthProvider provider,
+    required AvoraLinkedAuthProvider provider,
     required String providerSubjectId,
     required List<AvoraLinkedIdentity> currentLinks,
     required DateTime now,

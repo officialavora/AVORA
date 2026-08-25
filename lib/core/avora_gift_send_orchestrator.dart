@@ -1,8 +1,8 @@
 import 'avora_gift_send_preflight.dart';
 import 'avora_gift_transaction.dart';
 
-class AvoraGiftSendRequest {
-  const AvoraGiftSendRequest({
+class AvoraGiftSendCommand {
+  const AvoraGiftSendCommand({
     required this.transactionId,
     required this.idempotencyKey,
     required this.senderAvoraId,
@@ -53,7 +53,7 @@ class AvoraGiftSendOrchestrator {
   final AvoraGiftTransactionLedger _transactionLedger;
 
   AvoraGiftSendResult send(
-    AvoraGiftSendRequest request,
+    AvoraGiftSendCommand request,
   ) {
     if (request.senderAvoraId.trim().isEmpty ||
         request.receiverAvoraId.trim().isEmpty ||

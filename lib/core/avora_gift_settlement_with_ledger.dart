@@ -13,7 +13,7 @@ class AvoraGiftSettlementWithLedgerService {
   final AvoraGiftLedger _ledger;
 
   AvoraGiftFullSettlementResult settleAndRecord({
-    required AvoraGiftSendRequest request,
+    required AvoraGiftSendCommand request,
     required int receiverShareBps,
     required DateTime createdAt,
   }) {

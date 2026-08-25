@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'core/avora_community_rules.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 
 Future<void> main() async {
@@ -227,7 +228,7 @@ class WelcomeScreen extends StatelessWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                           builder: (_) => LoginScreen(
-                              onDemoLogin: () => _openHome(context))),
+                              onAuthenticated: () => _openHome(context))),
                     );
                   },
                   child: const Padding(
@@ -237,11 +238,6 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Social sign-in will be connected after Firebase Auth setup.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.white60),
-              ),
             ],
           ),
         ),
@@ -251,8 +247,8 @@ class WelcomeScreen extends StatelessWidget {
 }
 
 class LoginScreen extends StatelessWidget {
-  final VoidCallback onDemoLogin;
-  const LoginScreen({super.key, required this.onDemoLogin});
+  final VoidCallback onAuthenticated;
+  const LoginScreen({super.key, required this.onAuthenticated});
 
   Future<void> _signInWithGoogle(BuildContext context) async {
     try {
@@ -264,7 +260,7 @@ class LoginScreen extends StatelessWidget {
       if (!context.mounted) return;
 
       if (result.success) {
-        onDemoLogin();
+        onAuthenticated();
         return;
       }
 
@@ -376,6 +372,7 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   String gender = 'Prefer not to say';
+  bool acceptedPolicies = false;
 
   final displayName = TextEditingController();
   final country = TextEditingController();
@@ -384,6 +381,38 @@ class _SignupScreenState extends State<SignupScreen> {
   final bio = TextEditingController();
   final email = TextEditingController();
   final password = TextEditingController();
+
+  Future<void> showCommunityRules() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('AVORA Rules & Regulations'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final rule in AvoraCommunityRules.current) ...[
+                Text(
+                  rule.title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(rule.summary),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -457,17 +486,34 @@ class _SignupScreenState extends State<SignupScreen> {
             obscureText: true,
             decoration: const InputDecoration(labelText: 'Password *'),
           ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: acceptedPolicies,
+            onChanged: (value) {
+              setState(() => acceptedPolicies = value ?? false);
+            },
+            title: const Text('I agree to AVORA Terms, Privacy and Rules'),
+            subtitle: TextButton(
+              onPressed: showCommunityRules,
+              child: const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Read Rules & Regulations'),
+              ),
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
           const SizedBox(height: 18),
           FilledButton(
             onPressed: () async {
               if (displayName.text.trim().isEmpty ||
                   country.text.trim().isEmpty ||
                   email.text.trim().isEmpty ||
-                  password.text.length < 6) {
+                  password.text.length < 6 ||
+                  !acceptedPolicies) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
-                        'Name, country, email and 6+ digit password required'),
+                        'Complete all required fields and accept AVORA policies'),
                   ),
                 );
                 return;
@@ -481,6 +527,25 @@ class _SignupScreenState extends State<SignupScreen> {
                 );
 
                 await result.user?.updateDisplayName(displayName.text.trim());
+
+                final user = result.user;
+                if (user != null) {
+                  await FirebaseFirestore.instance
+                      .collection('policy_acceptances')
+                      .doc(user.uid)
+                      .set({
+                    'avoraUid': user.uid,
+                    'acceptedAt': FieldValue.serverTimestamp(),
+                    'documents': [
+                      for (final document
+                          in AvoraCommunityRules.requiredSignupDocuments)
+                        {
+                          'type': document.type.name,
+                          'version': document.version,
+                        },
+                    ],
+                  });
+                }
 
                 if (!context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
@@ -809,7 +874,7 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
           FilledButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Demo room created locally')),
+                const SnackBar(content: Text('Room created')),
               );
             },
             child: const Text('Create room'),

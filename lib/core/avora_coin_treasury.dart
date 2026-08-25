@@ -46,8 +46,8 @@ class AvoraCoinAccountSnapshot {
   }
 }
 
-class AvoraCoinLedgerEntry {
-  const AvoraCoinLedgerEntry({
+class AvoraTreasuryLedgerEntry {
+  const AvoraTreasuryLedgerEntry({
     required this.entryId,
     required this.type,
     this.sourceAccountId,
@@ -101,7 +101,7 @@ class AvoraCoinTreasuryDecision {
 
 class AvoraCoinTreasuryEngine {
   static AvoraCoinTreasuryDecision validate({
-    required AvoraCoinLedgerEntry entry,
+    required AvoraTreasuryLedgerEntry entry,
     required Iterable<AvoraCoinAccountSnapshot> accounts,
     required bool actorHasTreasuryPower,
   }) {
@@ -253,7 +253,7 @@ class AvoraCoinTreasuryEngine {
   }
 
   static int totalIssued(
-    Iterable<AvoraCoinLedgerEntry> ledger,
+    Iterable<AvoraTreasuryLedgerEntry> ledger,
   ) {
     var total = 0;
 
@@ -267,7 +267,7 @@ class AvoraCoinTreasuryEngine {
   }
 
   static int totalBurned(
-    Iterable<AvoraCoinLedgerEntry> ledger,
+    Iterable<AvoraTreasuryLedgerEntry> ledger,
   ) {
     var total = 0;
 
@@ -281,7 +281,7 @@ class AvoraCoinTreasuryEngine {
   }
 
   static int netIssuedSupply(
-    Iterable<AvoraCoinLedgerEntry> ledger,
+    Iterable<AvoraTreasuryLedgerEntry> ledger,
   ) {
     return totalIssued(ledger) - totalBurned(ledger);
   }

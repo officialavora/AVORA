@@ -80,6 +80,7 @@ jobs:
           sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_DIR/android/build.gradle"
 
       - run: flutter analyze --no-fatal-infos
+      - run: flutter test
 
       - name: Prepare stable Android signing identity
         env:

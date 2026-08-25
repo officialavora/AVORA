@@ -69,8 +69,8 @@ class AvoraGamePayoutPolicySnapshot {
   }
 }
 
-class AvoraGameRound {
-  const AvoraGameRound({
+class AvoraEngineGameRound {
+  const AvoraEngineGameRound({
     required this.roundId,
     required this.gameId,
     required this.policyVersion,
@@ -90,13 +90,13 @@ class AvoraGameRound {
   final DateTime? settledAtUtc;
   final String? winningSelectionId;
 
-  AvoraGameRound copyWith({
+  AvoraEngineGameRound copyWith({
     AvoraGameRoundStatus? status,
     DateTime? closedAtUtc,
     DateTime? settledAtUtc,
     String? winningSelectionId,
   }) {
-    return AvoraGameRound(
+    return AvoraEngineGameRound(
       roundId: roundId,
       gameId: gameId,
       policyVersion: policyVersion,
@@ -155,18 +155,18 @@ class AvoraPlayerGameSettlement {
 
 abstract interface class AvoraGameResultAuthority {
   String winningSelectionId({
-    required AvoraGameRound round,
+    required AvoraEngineGameRound round,
     required AvoraGamePayoutPolicySnapshot policy,
   });
 }
 
 class AvoraGameRoundLedger {
-  final Map<String, AvoraGameRound> _rounds = <String, AvoraGameRound>{};
+  final Map<String, AvoraEngineGameRound> _rounds = <String, AvoraEngineGameRound>{};
 
   final Map<String, AvoraGameRoundSettlement> _settlements =
       <String, AvoraGameRoundSettlement>{};
 
-  void openRound(AvoraGameRound round) {
+  void openRound(AvoraEngineGameRound round) {
     if (round.roundId.trim().isEmpty ||
         round.gameId.trim().isEmpty ||
         round.policyVersion.trim().isEmpty) {
@@ -180,7 +180,7 @@ class AvoraGameRoundLedger {
     _rounds[round.roundId] = round;
   }
 
-  AvoraGameRound? byId(String roundId) {
+  AvoraEngineGameRound? byId(String roundId) {
     return _rounds[roundId.trim()];
   }
 
@@ -247,8 +247,8 @@ class AvoraGameRoundLedger {
   static bool futureGamesMustUseSameRoundLedger() => true;
 }
 
-class AvoraGameRoundSettlementService {
-  AvoraGameRoundSettlementService({
+class AvoraGameEngineSettlementService {
+  AvoraGameEngineSettlementService({
     required AvoraLaunchGameBetLedger betLedger,
     required AvoraGameRoundLedger roundLedger,
     required AvoraGameResultAuthority resultAuthority,

@@ -33,7 +33,7 @@ class AvoraGiftEconomyFlow {
   final AvoraGiftProgressEngine _progressEngine;
 
   AvoraGiftEconomyFlowResult execute({
-    required AvoraGiftSendRequest request,
+    required AvoraGiftSendCommand request,
     required int receiverShareBps,
     required DateTime createdAt,
     required AvoraGiftProgressSnapshot currentProgress,

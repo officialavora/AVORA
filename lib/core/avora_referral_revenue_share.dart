@@ -24,8 +24,8 @@ enum AvoraReferralRevenueDenyReason {
   periodCapExhausted,
 }
 
-class AvoraReferralAttribution {
-  const AvoraReferralAttribution({
+class AvoraReferralRevenueAttribution {
+  const AvoraReferralRevenueAttribution({
     required this.inviterAvoraId,
     required this.inviteeAvoraId,
     required this.attributedAt,
@@ -162,7 +162,7 @@ class AvoraReferralRevenueShareEngine {
 
   static AvoraReferralRevenueShareDecision evaluate({
     required AvoraReferralRevenuePolicy policy,
-    required AvoraReferralAttribution attribution,
+    required AvoraReferralRevenueAttribution attribution,
     required AvoraReferralRevenueActivity activity,
     required DateTime now,
     int alreadyEarnedInPeriodMinor = 0,
