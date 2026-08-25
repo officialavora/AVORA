@@ -81,32 +81,35 @@ jobs:
           keyAlias=$AVORA_KEY_ALIAS
           storeFile=avora-upload-key.jks
           EOF
-      - name: Build signed APK
-        run: flutter build apk --release --target-platform android-arm64
+      - name: Build universal signed APK
+        run: flutter build apk --release
+      - name: Verify APK signature alignment and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          test -s "$APK"
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/apk-badging.txt
+          grep -q "package: name='com.officialavora.app'" /tmp/apk-badging.txt
+          unzip -t "$APK" >/dev/null
       - name: Verify and publish APK
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          test -s build/app/outputs/flutter-apk/app-release.apk
-          cp build/app/outputs/flutter-apk/app-release.apk AVORA-A2Z-final-test.apk
-          gh release delete avora-a2z-final-test --cleanup-tag -y || true
-          gh release create avora-a2z-final-test AVORA-A2Z-final-test.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA A2Z Final Test APK" --notes "Signed AVORA A2Z testing APK. Not published to Google Play."
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-A2Z-install-fixed.apk
+          gh release delete avora-a2z-install-fixed --cleanup-tag -y || true
+          gh release create avora-a2z-install-fixed AVORA-A2Z-install-fixed.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA A2Z Install-Fixed Test APK" --notes "Universal signed APK. Signature, ZIP integrity, package metadata and 16 KB alignment verified. Private testing only; not submitted to Google Play."
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AVORA-A2Z-final-test-apk
-          path: AVORA-A2Z-final-test.apk
+          name: AVORA-A2Z-install-fixed-apk
+          path: AVORA-A2Z-install-fixed.apk
           retention-days: 30
       - name: Cleanup signing
         if: always()
         run: rm -f android/key.properties android/app/avora-upload-key.jks
-      - name: Report build result
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BUILD_STATUS: ${{ job.status }}
-        shell: bash
-        run: |
-          gh issue create --repo "$GITHUB_REPOSITORY" --title "[AVORA A2Z BUILD] ${BUILD_STATUS} run ${GITHUB_RUN_ID}" --body "A2Z candidate: work/a2z-final-apk\nWorkflow status: ${BUILD_STATUS}\nRun: ${GITHUB_RUN_ID}\nRelease tag: avora-a2z-final-test"
