@@ -1165,7 +1165,7 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Wallet')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
-      Card(child: Padding(padding: const EdgeInsets.all(22), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: const [
+      const Card(child: Padding(padding: EdgeInsets.all(22), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
         _Balance(icon: Icons.monetization_on, value: '0', label: 'Coins'),
         _Balance(icon: Icons.diamond, value: '0', label: 'Diamonds'),
       ]))),
