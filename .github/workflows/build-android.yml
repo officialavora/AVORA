@@ -2,13 +2,15 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,6 +66,14 @@ jobs:
       - name: Test AVORA contracts
         run: flutter test
 
+      - name: Set monotonic update version
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_NUMBER=$((2000 + GITHUB_RUN_NUMBER))
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "AVORA versionCode: $BUILD_NUMBER"
+
       - name: Prepare permanent AVORA signing
         shell: bash
         env:
@@ -89,14 +99,51 @@ jobs:
             -storepass "$AVORA_KEYSTORE_PASSWORD" \
             -alias "$AVORA_KEY_ALIAS" >/dev/null
 
-      - name: Build release APK
-        run: flutter build apk --release --target-platform android-arm64
+      - name: Build universal release APK
+        run: flutter build apk --release --build-number="$BUILD_NUMBER"
 
-      - name: Upload APK artifact
+      - name: Build release AAB
+        run: flutter build appbundle --release --build-number="$BUILD_NUMBER"
+
+      - name: Verify update identity and artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/avora-signature.txt
+          grep -qi 'certificate SHA-256 digest: c79aa1892a2c6b753049c814c55163a228475ba60431876ed97c776348b894ae' /tmp/avora-signature.txt
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/avora-badging.txt
+          grep -q "package: name='com.officialavora.app'" /tmp/avora-badging.txt
+          grep -q "versionCode='$BUILD_NUMBER'" /tmp/avora-badging.txt
+          unzip -t "$APK" >/dev/null
+
+      - name: Publish latest AVORA update
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-latest.apk
+          cp build/app/outputs/bundle/release/app-release.aab AVORA-latest.aab
+          gh release delete avora-latest-update --cleanup-tag -y || true
+          gh release create avora-latest-update AVORA-latest.apk AVORA-latest.aab \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "AVORA Latest Update" \
+            --notes "Signed update build from commit $GITHUB_SHA. Package com.officialavora.app. VersionCode $BUILD_NUMBER. Install over the existing AVORA app without uninstalling."
+
+      - name: Upload APK and AAB artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AVORA-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: AVORA-update-build
+          path: |
+            AVORA-latest.apk
+            AVORA-latest.aab
           if-no-files-found: error
 
       - name: Cleanup signing files
