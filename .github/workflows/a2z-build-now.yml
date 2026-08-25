@@ -1,4 +1,4 @@
-name: AVORA A2Z Build Now
+name: AVORA Functional A2Z Build
 
 on:
   pull_request:
@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: write
-  issues: write
 
 jobs:
   build:
@@ -18,7 +17,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: work/a2z-final-apk
-      - name: Apply verified A2Z source payload
+
+      - name: Apply A2Z base payload
         shell: bash
         run: |
           set -euo pipefail
@@ -27,35 +27,41 @@ jobs:
           echo "feaeed8ca4dcf523bb1d482f11cfe8edbaa0bed54b4cc8d50224299e39919607  /tmp/a2z.tar.xz" | sha256sum -c -
           tar -xJf /tmp/a2z.tar.xz -C .
           sed -i "1{/import 'avora_roles.dart';/d;}" lib/core/avora_role_visibility_policy.dart
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('lib/ui/avora_room_preview.dart')
-          s=p.read_text().replace('itemCount: gifts.length','itemCount: _AvoraRoomPreviewScreenState.gifts.length').replace('final g = gifts[i];','final g = _AvoraRoomPreviewScreenState.gifts[i];')
-          p.write_text(s)
-          p=Path('lib/main.dart'); lines=p.read_text().splitlines()
-          for n in (687,692):
-              if n-1 < len(lines): lines[n-1]=lines[n-1].replace('if (!mounted) return;','if (!context.mounted) return;')
-          p.write_text('\n'.join(lines)+'\n')
-          PY
+
+      - name: Apply video-review functional fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/functional-fix-00 .github/functional-fix-01 .github/functional-fix-02 .github/functional-fix-03 .github/functional-fix-04 .github/functional-fix-05 .github/functional-fix-06 > /tmp/functional.b64
+          base64 --decode /tmp/functional.b64 > /tmp/functional.tar.xz
+          echo "ee4c90be1ce024f9b6c2ad40667fc0713df09e536bbac5a794a45eff2a2e999e  /tmp/functional.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/functional.tar.xz -C .
+          grep -q "version: 0.1.0+10" pubspec.yaml
+          grep -q "flutter_secure_storage" pubspec.yaml
+          grep -q "AVORA ID or email" lib/main.dart
+          grep -q "Request recharge" lib/main.dart
+          grep -q "Notifications" lib/main.dart
+          grep -q "System" lib/main.dart
+          grep -q "Contacts" lib/main.dart
+          grep -q "Edit profile" lib/main.dart
+          grep -q "takeSeat" lib/ui/avora_room_preview.dart || grep -q "_takeSeat" lib/ui/avora_room_preview.dart
+          grep -q "sendGift" lib/ui/avora_room_preview.dart || grep -q "_sendGift" lib/ui/avora_room_preview.dart
           test "$(grep -c "AvoraCanonicalGame(id:" lib/core/avora_game_catalog_43.dart)" -eq 43
-          grep -qi greedy_line lib/core/avora_game_catalog_43.dart
-          grep -qi ferris_wheel lib/core/avora_game_catalog_43.dart
-          grep -qi seller lib/core/avora_role_prestige_catalog.dart
-          grep -qi merchant lib/core/avora_role_prestige_catalog.dart
-          grep -qi recharge lib/core/avora_a2z_master_coverage.dart
-          grep -qi sending_level lib/core/avora_a2z_master_coverage.dart
-          grep -qi receiving_level lib/core/avora_a2z_master_coverage.dart
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: '3.47.0'
           cache: true
           pub-cache: true
+
       - run: flutter pub get
+
       - name: Patch ZEGO Android build
         shell: bash
         run: |
@@ -63,7 +69,9 @@ jobs:
           ZEGO_DIR="$(find "$PUB_CACHE/hosted/pub.dev" -maxdepth 1 -type d -name 'zego_express_engine-*' -print -quit)"
           test -n "$ZEGO_DIR"
           sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_DIR/android/build.gradle"
+
       - run: flutter analyze --no-fatal-infos
+
       - name: Prepare signing
         env:
           AVORA_KEYSTORE_BASE64: ${{ secrets.AVORA_KEYSTORE_BASE64 }}
@@ -81,9 +89,11 @@ jobs:
           keyAlias=$AVORA_KEY_ALIAS
           storeFile=avora-upload-key.jks
           EOF
+
       - name: Build universal signed APK
         run: flutter build apk --release
-      - name: Verify APK signature alignment and package
+
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
@@ -94,22 +104,26 @@ jobs:
           "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/apk-badging.txt
           grep -q "package: name='com.officialavora.app'" /tmp/apk-badging.txt
+          grep -q "versionCode='10'" /tmp/apk-badging.txt
           unzip -t "$APK" >/dev/null
-      - name: Verify and publish APK
+
+      - name: Publish functional APK release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          cp build/app/outputs/flutter-apk/app-release.apk AVORA-A2Z-install-fixed.apk
-          gh release delete avora-a2z-install-fixed --cleanup-tag -y || true
-          gh release create avora-a2z-install-fixed AVORA-A2Z-install-fixed.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA A2Z Install-Fixed Test APK" --notes "Universal signed APK. Signature, ZIP integrity, package metadata and 16 KB alignment verified. Private testing only; not submitted to Google Play."
+          cp build/app/outputs/flutter-apk/app-release.apk AVORA-functional-video-fix.apk
+          gh release delete avora-functional-video-fix --cleanup-tag -y || true
+          gh release create avora-functional-video-fix AVORA-functional-video-fix.apk --repo "$GITHUB_REPOSITORY" --target work/a2z-final-apk --title "AVORA Functional Video Fix APK" --notes "Video-review functional fixes. Universal signed APK, versionCode 10, verified signature/package/alignment. Private testing only."
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AVORA-A2Z-install-fixed-apk
-          path: AVORA-A2Z-install-fixed.apk
+          name: AVORA-functional-video-fix-apk
+          path: AVORA-functional-video-fix.apk
           retention-days: 30
+
       - name: Cleanup signing
         if: always()
         run: rm -f android/key.properties android/app/avora-upload-key.jks
