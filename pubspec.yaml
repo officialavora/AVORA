@@ -1,7 +1,7 @@
 name: avora
-description: AVORA cross-platform social voice/video/live app starter.
+description: AVORA cross-platform social voice/video/live app.
 publish_to: "none"
-version: 0.1.0+31
+version: 0.1.0+32
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
