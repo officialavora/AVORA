@@ -41,7 +41,7 @@ service cloud.firestore {
         && request.resource.data.originalAvoraId is int
         && request.resource.data.keys().hasOnly([
           'originalAvoraId', 'displayName', 'photoDataUrl', 'photoUrl',
-          'bio', 'country', 'countryCode', 'richLevel', 'charmLevel',
+          'bio', 'dateOfBirth', 'country', 'countryCode', 'richLevel', 'charmLevel',
           'vipLevel', 'friendsCount', 'followersCount', 'followingCount',
           'verified', 'updatedAt'
         ]);
@@ -50,7 +50,7 @@ service cloud.firestore {
         && request.resource.data.originalAvoraId == resource.data.originalAvoraId
         && request.resource.data.keys().hasOnly([
           'originalAvoraId', 'displayName', 'photoDataUrl', 'photoUrl',
-          'bio', 'country', 'countryCode', 'richLevel', 'charmLevel',
+          'bio', 'dateOfBirth', 'country', 'countryCode', 'richLevel', 'charmLevel',
           'vipLevel', 'friendsCount', 'followersCount', 'followingCount',
           'verified', 'updatedAt'
         ]);
@@ -128,6 +128,30 @@ service cloud.firestore {
           && request.resource.data.senderUid == request.auth.uid;
         allow update, delete: if false;
       }
+    }
+
+    match /families/{uid} {
+      allow read: if signedIn();
+      allow create: if owns(uid)
+        && request.resource.data.ownerUid == uid;
+      allow update: if owns(uid)
+        && resource.data.ownerUid == uid
+        && request.resource.data.ownerUid == uid;
+      allow delete: if false;
+    }
+
+    match /testRechargeRequests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.requesterUid == request.auth.uid
+        && request.resource.data.targetAvoraId is int
+        && request.resource.data.testCoins is int
+        && request.resource.data.testCoins >= 1
+        && request.resource.data.testCoins <= 1000000
+        && request.resource.data.status == 'pending'
+        && request.resource.data.environment == 'test';
+      allow read: if signedIn()
+        && resource.data.requesterUid == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /supportTickets/{ticketId} {
