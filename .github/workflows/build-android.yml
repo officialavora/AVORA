@@ -48,7 +48,8 @@ jobs:
           test -f lib/services/avora_google_sign_in_adapter.dart
           test -f lib/services/avora_firebase_auth_bridge.dart
           test -f lib/core/avora_account_linking.dart
-          echo "AVORA identity and source files verified"
+          grep -qE '^version: [^+]+\+[0-9]+$' pubspec.yaml
+          echo "AVORA identity, version and source files verified"
 
       - name: Patch ZEGO Android build
         shell: bash
@@ -56,14 +57,10 @@ jobs:
           set -euo pipefail
           ZEGO_DIR="$(find "$PUB_CACHE/hosted/pub.dev" -maxdepth 1 -type d -name 'zego_express_engine-*' -print -quit)"
           test -n "$ZEGO_DIR"
-
           ZEGO_GRADLE="$ZEGO_DIR/android/build.gradle"
           test -f "$ZEGO_GRADLE"
-
           echo "ZEGO_GRADLE=$ZEGO_GRADLE"
-
           sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' "$ZEGO_GRADLE"
-
           grep -nE 'compileSdkVersion' "$ZEGO_GRADLE"
           grep -qE 'compileSdkVersion[[:space:]]+36' "$ZEGO_GRADLE"
 
@@ -116,9 +113,13 @@ jobs:
           APK="build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          EXPECTED_VERSION_CODE="$(sed -nE 's/^version: [^+]+\+([0-9]+)$/\1/p' pubspec.yaml)"
+          test -n "$EXPECTED_VERSION_CODE"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
-          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -q "package: name='com.officialavora.app'"
-          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -q "versionCode='31'"
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging "$APK")"
+          printf '%s\n' "$BADGING" | grep -q "package: name='com.officialavora.app'"
+          printf '%s\n' "$BADGING" | grep -q "versionCode='$EXPECTED_VERSION_CODE'"
+          echo "Verified package com.officialavora.app versionCode=$EXPECTED_VERSION_CODE"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
