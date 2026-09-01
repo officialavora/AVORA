@@ -12,14 +12,17 @@ service cloud.firestore {
 
     function isOwner() {
       return signedIn()
-        && exists(/databases/$(database)/documents/ownerAccess/$(request.auth.uid))
-        && get(/databases/$(database)/documents/ownerAccess/$(request.auth.uid)).data.active == true
-        && get(/databases/$(database)/documents/ownerAccess/$(request.auth.uid)).data.role == 'owner';
+        && request.auth.token.keys().hasAny(['avora_owner'])
+        && request.auth.token.avora_owner == true;
     }
 
     function validUsername(value) {
       return value is string
-        && value.matches('^[a-z][a-z0-9_]{3,19}$');
+        && value.matches('^[a-z][a-z0-9_]{3,19}$')
+        && ![
+          'admin', 'administrator', 'avora', 'avora_admin', 'avora_owner',
+          'moderator', 'official', 'owner', 'root', 'staff', 'support', 'system'
+        ].hasAny([value]);
     }
 
     match /system/counters {
@@ -74,14 +77,14 @@ service cloud.firestore {
           == uid
         && getAfter(/databases/$(database)/documents/system/counters).data.lastUserId
           == request.resource.data.originalAvoraId;
-      allow update: if owns(uid)
-        && request.resource.data.originalAvoraId == resource.data.originalAvoraId
-        && request.resource.data.username == resource.data.username
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.authorityRole == resource.data.authorityRole
-        && request.resource.data.commerceRole == resource.data.commerceRole
-        && request.resource.data.staffAssignments == resource.data.staffAssignments
-        && request.resource.data.scopeType == resource.data.scopeType
+      allow update: if (owns(uid)
+          && request.resource.data.originalAvoraId == resource.data.originalAvoraId
+          && request.resource.data.username == resource.data.username
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.authorityRole == resource.data.authorityRole
+          && request.resource.data.commerceRole == resource.data.commerceRole
+          && request.resource.data.staffAssignments == resource.data.staffAssignments
+          && request.resource.data.scopeType == resource.data.scopeType)
         || isOwner();
       allow delete: if false;
     }

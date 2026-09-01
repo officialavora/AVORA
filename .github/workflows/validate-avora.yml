@@ -29,6 +29,12 @@ jobs:
       - name: Validate persistent project state
         run: dart run tool/validate_project_state.dart
 
+      - name: Install Firebase rules test dependencies
+        run: npm ci
+
+      - name: Test Firestore rules and concurrent identity allocation
+        run: npm run test:rules
+
       - name: Verify protected identity and scope
         shell: bash
         run: |
