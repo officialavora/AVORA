@@ -10,4 +10,11 @@ void main() {
       containsAll(AvoraGameEngine.values),
     );
   });
+
+  test('every catalog entry has visible identity data', () {
+    for (final game in avoraGames) {
+      expect(game.name.trim(), isNotEmpty);
+      expect(game.icon.trim(), isNotEmpty);
+    }
+  });
 }
