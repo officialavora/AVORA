@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'core/avora_community_rules.dart';
 import 'services/avora_google_sign_in_adapter.dart';
+import 'ui/avora_games_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -708,6 +709,13 @@ class HomePage extends StatelessWidget {
               title: 'Rewards',
               subtitle: 'Daily tasks, levels and rewards',
               onTap: () => _openFeature(context, 'Rewards', Icons.card_giftcard, const ['Daily check-in', 'Join a room', 'Complete your profile'])),
+          _FeatureTile(
+              icon: Icons.sports_esports_rounded,
+              title: 'Games',
+              subtitle: 'Play 43 original AVORA games',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AvoraGamesScreen(),
+                  ))),
         ],
       ),
     );
