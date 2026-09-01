@@ -1,0 +1,47 @@
+name: Validate AVORA
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.0"
+          cache: true
+          pub-cache: true
+
+      - name: Validate persistent project state
+        run: dart run tool/validate_project_state.dart
+
+      - name: Verify protected identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.officialavora.app"' android/app/build.gradle.kts
+          grep -q 'Funny Room is read-only workflow reference only' AVORA_MASTER_RULE.md
+          grep -q 'Voice/RTC' docs/EXECUTABLE_SCOPE.md
+          grep -q 'Money/Recharge' docs/EXECUTABLE_SCOPE.md
+
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test tool
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Compile debug APK without publishing
+        run: flutter build apk --debug

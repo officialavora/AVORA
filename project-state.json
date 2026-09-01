@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "project": "AVORA",
+  "repository": "officialavora/AVORA",
+  "defaultBranch": "main",
+  "workingBranch": "feature/production-foundation",
+  "androidPackage": "com.officialavora.app",
+  "workflowReferenceOnly": "officialavora/funny-room",
+  "funnyRoomMutationAllowed": false,
+  "paidServiceActivationAllowed": false,
+  "excludedModules": ["voice_rtc", "money_recharge"],
+  "definitionOfDone": "real_ui_backend_reload_sync_security_owner_controls_states_automated_manual_apk",
+  "currentTask": "persistent_command_system_and_safe_validation_gates",
+  "verified": {
+    "githubAccess": true,
+    "firebaseAuthPresent": true,
+    "firestoreClientPresent": true,
+    "productionBackendComplete": false,
+    "deviceRuntimeTested": false,
+    "releaseApkCurrentScope": false
+  },
+  "lastUpdated": "2026-09-01T00:00:00Z"
+}
