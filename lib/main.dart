@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'services/avora_google_sign_in_adapter.dart';
+import 'ui/avora_games_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -622,24 +623,31 @@ class HomePage extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          _HeroCard(),
-          SizedBox(height: 18),
-          Text('Discover',
+        children: [
+          const _HeroCard(),
+          const SizedBox(height: 18),
+          const Text('Discover',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          SizedBox(height: 10),
-          _FeatureTile(
+          const SizedBox(height: 10),
+          const _FeatureTile(
               icon: Icons.mic,
               title: 'Voice Rooms',
               subtitle: 'Join conversations and communities'),
-          _FeatureTile(
+          const _FeatureTile(
               icon: Icons.videocam,
               title: 'Live',
               subtitle: 'Video and interactive live rooms — planned'),
-          _FeatureTile(
+          const _FeatureTile(
               icon: Icons.card_giftcard,
               title: 'Rewards',
               subtitle: 'Tasks, levels and rewards — planned'),
+          _FeatureTile(
+              icon: Icons.sports_esports_rounded,
+              title: 'Games',
+              subtitle: 'Play 43 original AVORA games',
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const AvoraGamesScreen(),
+                  ))),
         ],
       ),
     );
@@ -678,17 +686,20 @@ class _FeatureTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const _FeatureTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: onTap,
         leading: CircleAvatar(child: Icon(icon)),
         title: Text(title),
         subtitle: Text(subtitle),
