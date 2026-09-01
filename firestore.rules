@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/ownerAccess/$(request.auth.uid))
+        && get(/databases/$(database)/documents/ownerAccess/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/ownerAccess/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    function validUsername(value) {
+      return value is string
+        && value.matches('^[a-z][a-z0-9_]{3,19}$');
+    }
+
+    match /system/counters {
+      allow read: if signedIn();
+      allow create, delete: if false;
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastUserId'])
+        && request.resource.data.lastUserId == resource.data.lastUserId + 1
+        && request.resource.data.lastUserId >= 10000000
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.originalAvoraId
+          == request.resource.data.lastUserId;
+    }
+
+    match /usernames/{username} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/usernames/$(username))
+        && validUsername(username)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'username', 'avoraId', 'createdAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username == username
+        && request.resource.data.avoraId is int
+        && request.resource.data.avoraId >= 10000000
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username
+          == username
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.originalAvoraId
+          == request.resource.data.avoraId;
+      allow update, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if owns(uid) || isOwner();
+      allow create: if owns(uid)
+        && request.resource.data.keys().hasOnly([
+          'originalAvoraId', 'username', 'role', 'authorityRole',
+          'commerceRole', 'staffAssignments', 'scopeType', 'countryCode',
+          'managerId', 'bdId', 'agencyId', 'displayName', 'createdAt'
+        ])
+        && request.resource.data.originalAvoraId is int
+        && request.resource.data.originalAvoraId >= 10000000
+        && validUsername(request.resource.data.username)
+        && request.resource.data.role == 'user'
+        && request.resource.data.authorityRole == 'user'
+        && request.resource.data.commerceRole == 'none'
+        && request.resource.data.staffAssignments.size() == 0
+        && request.resource.data.scopeType == 'self'
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid
+          == uid
+        && getAfter(/databases/$(database)/documents/system/counters).data.lastUserId
+          == request.resource.data.originalAvoraId;
+      allow update: if owns(uid)
+        && request.resource.data.originalAvoraId == resource.data.originalAvoraId
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.authorityRole == resource.data.authorityRole
+        && request.resource.data.commerceRole == resource.data.commerceRole
+        && request.resource.data.staffAssignments == resource.data.staffAssignments
+        && request.resource.data.scopeType == resource.data.scopeType
+        || isOwner();
+      allow delete: if false;
+    }
+
+    match /ownerAccess/{uid} {
+      allow read: if owns(uid) || isOwner();
+      allow write: if false;
+    }
+
+    match /policy_acceptances/{uid} {
+      allow read: if owns(uid) || isOwner();
+      allow create: if owns(uid)
+        && request.resource.data.avoraUid == uid
+        && request.resource.data.acceptedAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

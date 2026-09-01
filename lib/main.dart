@@ -14,7 +14,11 @@ Future<void> main() async {
   runApp(const AvoraApp());
 }
 
-Future<Map<String, dynamic>> ensureAvoraAccount() async {
+String normalizeAvoraUsername(String value) {
+  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '');
+}
+
+Future<Map<String, dynamic>> ensureAvoraAccount({String? requestedUsername}) async {
   final user = FirebaseAuth.instance.currentUser;
   if (user == null) {
     throw StateError('Not signed in');
@@ -42,14 +46,43 @@ Future<Map<String, dynamic>> ensureAvoraAccount() async {
     }
 
     final nextId = (counter['lastUserId'] as int) + 1;
+    if (nextId < 10000000) {
+      throw StateError('AVORA ID counter is below the production range');
+    }
+
+    final fallbackUsername = 'avora$nextId';
+    final normalizedUsername = normalizeAvoraUsername(
+      requestedUsername?.trim().isNotEmpty == true
+          ? requestedUsername!
+          : fallbackUsername,
+    );
+    if (!RegExp(r'^[a-z][a-z0-9_]{3,19}$').hasMatch(normalizedUsername)) {
+      throw StateError(
+        'Username must start with a letter and contain 4-20 letters, numbers or underscores',
+      );
+    }
+
+    final usernameRef = db.collection('usernames').doc(normalizedUsername);
+    final usernameSnapshot = await transaction.get(usernameRef);
+    if (usernameSnapshot.exists) {
+      throw StateError('Username is already taken');
+    }
     final name = (user.displayName?.trim().isNotEmpty ?? false)
         ? user.displayName!.trim()
         : 'AVORA User';
 
     transaction.update(counterRef, {'lastUserId': nextId});
 
+    transaction.set(usernameRef, {
+      'uid': user.uid,
+      'username': normalizedUsername,
+      'avoraId': nextId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
     transaction.set(userRef, {
       'originalAvoraId': nextId,
+      'username': normalizedUsername,
       'role': 'user',
       'authorityRole': 'user',
       'commerceRole': 'none',
@@ -65,6 +98,7 @@ Future<Map<String, dynamic>> ensureAvoraAccount() async {
 
     return {
       'originalAvoraId': nextId,
+      'username': normalizedUsername,
       'role': 'user',
       'displayName': name,
     };
@@ -376,6 +410,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool acceptedPolicies = false;
 
   final displayName = TextEditingController();
+  final username = TextEditingController();
   final country = TextEditingController();
   final invite = TextEditingController();
   final dob = TextEditingController();
@@ -418,6 +453,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void dispose() {
     displayName.dispose();
+    username.dispose();
     country.dispose();
     invite.dispose();
     dob.dispose();
@@ -437,6 +473,18 @@ class _SignupScreenState extends State<SignupScreen> {
           TextField(
             controller: displayName,
             decoration: const InputDecoration(labelText: 'Display name *'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: username,
+            autocorrect: false,
+            enableSuggestions: false,
+            maxLength: 20,
+            decoration: const InputDecoration(
+              labelText: 'Unique username *',
+              prefixText: '@',
+              helperText: '4-20 lowercase letters, numbers or underscores',
+            ),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -507,6 +555,8 @@ class _SignupScreenState extends State<SignupScreen> {
           FilledButton(
             onPressed: () async {
               if (displayName.text.trim().isEmpty ||
+                  !RegExp(r'^[a-z][a-z0-9_]{3,19}$')
+                      .hasMatch(normalizeAvoraUsername(username.text)) ||
                   country.text.trim().isEmpty ||
                   email.text.trim().isEmpty ||
                   password.text.length < 6 ||
@@ -520,17 +570,22 @@ class _SignupScreenState extends State<SignupScreen> {
                 return;
               }
 
+              User? newlyCreatedUser;
+              var identityCreated = false;
               try {
                 final result =
                     await FirebaseAuth.instance.createUserWithEmailAndPassword(
                   email: email.text.trim(),
                   password: password.text,
                 );
+                newlyCreatedUser = result.user;
 
                 await result.user?.updateDisplayName(displayName.text.trim());
 
                 final user = result.user;
                 if (user != null) {
+                  await ensureAvoraAccount(requestedUsername: username.text);
+                  identityCreated = true;
                   await FirebaseFirestore.instance
                       .collection('policy_acceptances')
                       .doc(user.uid)
@@ -558,6 +613,22 @@ class _SignupScreenState extends State<SignupScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                       content: Text(e.message ?? 'Account creation failed')),
+                );
+              } on FirebaseException catch (e) {
+                if (!identityCreated) {
+                  await newlyCreatedUser?.delete();
+                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.message ?? 'Account setup failed')),
+                );
+              } on StateError catch (e) {
+                if (!identityCreated) {
+                  await newlyCreatedUser?.delete();
+                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.message)),
                 );
               }
             },
