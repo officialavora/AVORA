@@ -30,7 +30,11 @@ jobs:
         run: dart run tool/validate_project_state.dart
 
       - name: Install Firebase rules test dependencies
-        run: npm ci
+        # The repository connector does not reliably transfer the generated
+        # lockfile. Keep CI reproducible enough for emulator tests by installing
+        # only the versions constrained in package.json and never running
+        # dependency lifecycle scripts.
+        run: npm install --ignore-scripts --no-audit --no-fund
 
       - name: Test Firestore rules and concurrent identity allocation
         run: npm run test:rules
