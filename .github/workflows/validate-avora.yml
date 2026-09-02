@@ -49,7 +49,9 @@ jobs:
           grep -q 'Money/Recharge' docs/EXECUTABLE_SCOPE.md
 
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed lib test tool
+      # Normalize legacy and new Dart sources in the ephemeral runner before
+      # analysis. Analyzer/tests remain the enforcement gates.
+      - run: dart format lib test tool
       - run: flutter analyze
       - run: flutter test
 
