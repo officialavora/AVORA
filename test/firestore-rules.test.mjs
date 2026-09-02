@@ -7,6 +7,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  deleteDoc,
   doc,
   getDoc,
   runTransaction,
@@ -360,4 +361,76 @@ test('blocking stops messages in both directions and reports are immutable', asy
     createdAt: serverTimestamp(),
   }));
   await assertFails(updateDoc(report, {status: 'dismissed'}));
+});
+
+test('follow and notification are atomic and blocked relationships cannot follow', async () => {
+  await allocate('user-a', 'member_a');
+  await allocate('user-b', 'member_b');
+  const db = environment.authenticatedContext('user-a').firestore();
+  const follow = doc(db, 'follows/user-a_user-b');
+  const notice = doc(db, 'notifications/user-b/items/follow-a');
+  const batch = writeBatch(db);
+  batch.set(follow, {
+    sourceUid: 'user-a',
+    targetUid: 'user-b',
+    targetUsername: 'member_b',
+    status: 'active',
+    createdAt: serverTimestamp(),
+  });
+  batch.set(notice, {
+    recipientUid: 'user-b',
+    actorUid: 'user-a',
+    type: 'follow',
+    title: 'New follower',
+    body: 'An AVORA member followed you',
+    read: false,
+    createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+
+  const recipientDb = environment.authenticatedContext('user-b').firestore();
+  await assertSucceeds(updateDoc(
+    doc(recipientDb, 'notifications/user-b/items/follow-a'),
+    {read: true},
+  ));
+  await assertFails(getDoc(doc(db, 'notifications/user-b/items/follow-a')));
+  await assertSucceeds(setDoc(doc(recipientDb, 'blocks/user-b_user-a'), {
+    blockerUid: 'user-b',
+    blockedUid: 'user-a',
+    createdAt: serverTimestamp(),
+  }));
+  await assertSucceeds(deleteDoc(follow));
+  await assertFails(setDoc(follow, {
+    sourceUid: 'user-a',
+    targetUid: 'user-b',
+    targetUsername: 'member_b',
+    status: 'active',
+    createdAt: serverTimestamp(),
+  }));
+});
+
+test('only custom-claim Owner can review submitted reports', async () => {
+  const reporter = environment.authenticatedContext('user-a').firestore();
+  const report = doc(reporter, 'reports/owner-review');
+  await assertSucceeds(setDoc(report, {
+    reporterUid: 'user-a',
+    targetUid: 'user-b',
+    conversationId: 'user-a_user-b',
+    category: 'direct_message',
+    details: 'Needs review',
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  }));
+  const ordinary = environment.authenticatedContext('user-b').firestore();
+  await assertFails(updateDoc(doc(ordinary, 'reports/owner-review'), {
+    status: 'approved',
+  }));
+  const owner = environment.authenticatedContext('owner-a', {
+    avora_owner: true,
+  }).firestore();
+  await assertSucceeds(updateDoc(doc(owner, 'reports/owner-review'), {
+    status: 'approved',
+    reviewedBy: 'owner-a',
+    reviewedAt: serverTimestamp(),
+  }));
 });

@@ -356,6 +356,54 @@ service cloud.firestore {
       }
     }
 
+    match /follows/{followId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && followId == request.auth.uid + '_' + request.resource.data.targetUid
+        && request.resource.data.keys().hasOnly([
+          'sourceUid', 'targetUid', 'targetUsername', 'status', 'createdAt'
+        ])
+        && request.resource.data.sourceUid == request.auth.uid
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUid != request.auth.uid
+        && request.resource.data.targetUsername is string
+        && validUsername(request.resource.data.targetUsername)
+        && request.resource.data.status == 'active'
+        && request.resource.data.createdAt == request.time
+        && get(/databases/$(database)/documents/usernames/$(request.resource.data.targetUsername)).data.uid
+          == request.resource.data.targetUid
+        && !exists(/databases/$(database)/documents/blocks/$(
+          request.auth.uid + '_' + request.resource.data.targetUid))
+        && !exists(/databases/$(database)/documents/blocks/$(
+          request.resource.data.targetUid + '_' + request.auth.uid));
+      allow delete: if signedIn()
+        && resource.data.sourceUid == request.auth.uid;
+      allow update: if false;
+    }
+
+    match /notifications/{uid}/items/{notificationId} {
+      allow read: if owns(uid) || isOwner();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'recipientUid', 'actorUid', 'type', 'title', 'body', 'read',
+          'createdAt'
+        ])
+        && request.resource.data.recipientUid == uid
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.type == 'follow'
+        && request.resource.data.title == 'New follower'
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 160
+        && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/follows/$(
+          request.auth.uid + '_' + uid));
+      allow update: if owns(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+      allow delete: if owns(uid) || isOwner();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -9,6 +9,7 @@ import 'services/avora_google_sign_in_adapter.dart';
 import 'ui/avora_games_screen.dart';
 import 'ui/avora_messages_screen.dart';
 import 'ui/avora_rooms_screen.dart';
+import 'ui/avora_social_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -757,7 +758,13 @@ class HomePage extends StatelessWidget {
           ],
         ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AvoraPeopleScreen()),
+            ),
+            icon: const Icon(Icons.search),
+          ),
         ],
       ),
       body: ListView(
@@ -1090,6 +1097,16 @@ class ProfilePage extends StatelessWidget {
             title: 'Settings',
             subtitle: 'Privacy, security and preferences',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
+          _FeatureTile(
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Owner moderation',
+            subtitle: 'Protected reports and review queue',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const AvoraOwnerModerationScreen(),
+              ),
+            ),
           ),
           const SizedBox(height: 14),
           FilledButton.tonalIcon(

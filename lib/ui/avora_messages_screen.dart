@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'avora_social_screen.dart';
+
 class AvoraMessagesScreen extends StatefulWidget {
   const AvoraMessagesScreen({super.key});
 
@@ -98,6 +100,16 @@ class _AvoraMessagesScreenState extends State<AvoraMessagesScreen> {
         appBar: AppBar(
           title: const Text('Messages'),
           actions: [
+            IconButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AvoraNotificationsScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.notifications_outlined),
+              tooltip: 'Notifications',
+            ),
             IconButton(
               onPressed: _startConversation,
               icon: const Icon(Icons.edit_square),
