@@ -12,6 +12,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
 } from 'firebase/firestore';
 
@@ -34,7 +35,7 @@ beforeEach(async () => {
 });
 
 after(async () => {
-  await environment.cleanup();
+  if (environment) await environment.cleanup();
 });
 
 const userPayload = (id, username) => ({
@@ -51,6 +52,7 @@ const userPayload = (id, username) => ({
   agencyId: null,
   displayName: username,
   createdAt: serverTimestamp(),
+  usernameChangedAt: serverTimestamp(),
 });
 
 async function allocate(uid, username) {
@@ -93,6 +95,52 @@ async function allocateWithContentionRetry(uid, username) {
   throw lastError;
 }
 
+async function ageUsername(uid, days) {
+  await environment.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), `users/${uid}`), {
+      usernameChangedAt: Timestamp.fromMillis(Date.now() - days * 86400000),
+    });
+  });
+}
+
+async function rename(uid, newUsername) {
+  const db = environment.authenticatedContext(uid).firestore();
+  return runTransaction(db, async (transaction) => {
+    const userRef = doc(db, `users/${uid}`);
+    const userSnapshot = await transaction.get(userRef);
+    const user = userSnapshot.data();
+    const oldUsername = user.username;
+    const avoraId = user.originalAvoraId;
+    const newUsernameRef = doc(db, `usernames/${newUsername}`);
+    await transaction.get(newUsernameRef);
+    transaction.set(newUsernameRef, {
+      uid,
+      username: newUsername,
+      avoraId,
+      createdAt: serverTimestamp(),
+    });
+    transaction.set(doc(db, `usernameHistory/${oldUsername}`), {
+      uid,
+      username: oldUsername,
+      replacementUsername: newUsername,
+      avoraId,
+      reservedAt: serverTimestamp(),
+    });
+    transaction.set(doc(db, `identityAudit/${uid}-rename`), {
+      action: 'username.rename',
+      uid,
+      oldUsername,
+      newUsername,
+      createdAt: serverTimestamp(),
+    });
+    transaction.update(userRef, {
+      username: newUsername,
+      usernameChangedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
 test('first production identity is exactly 10000000', async () => {
   assert.equal(await assertSucceeds(allocate('user-a', 'member_a')), 10000000);
 });
@@ -133,4 +181,18 @@ test('only a custom-claim Owner can perform privileged profile updates', async (
   await assertFails(updateDoc(doc(ordinary, 'users/user-a'), {displayName: 'Bad'}));
   await assertSucceeds(updateDoc(doc(owner, 'users/user-a'), {displayName: 'Reviewed'}));
   assert.equal((await getDoc(doc(owner, 'users/user-a'))).data().displayName, 'Reviewed');
+});
+
+test('username rename enforces cooldown and preserves permanent history', async () => {
+  await assertSucceeds(allocate('user-a', 'member_a'));
+  await assertFails(rename('user-a', 'member_new'));
+  await ageUsername('user-a', 31);
+  await assertSucceeds(rename('user-a', 'member_new'));
+
+  const db = environment.authenticatedContext('user-a').firestore();
+  const history = await getDoc(doc(db, 'usernameHistory/member_a'));
+  assert.equal(history.data().replacementUsername, 'member_new');
+
+  await ageUsername('user-a', 31);
+  await assertFails(rename('user-a', 'member_a'));
 });

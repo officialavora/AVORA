@@ -1,0 +1,54 @@
+name: Manage AVORA Owner Claim
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_uid:
+        description: Firebase UID receiving or losing Owner authority
+        required: true
+        type: string
+      action:
+        description: Owner claim operation
+        required: true
+        type: choice
+        options:
+          - grant
+          - revoke
+      reason:
+        description: Audited reason (10-500 characters)
+        required: true
+        type: string
+      confirmation:
+        description: Type MANAGE_AVORA_OWNER
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avora-owner-claim
+  cancel-in-progress: false
+
+jobs:
+  manage:
+    if: github.repository == 'officialavora/AVORA' && inputs.confirmation == 'MANAGE_AVORA_OWNER'
+    runs-on: ubuntu-latest
+    environment: production-owner-authority
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Set audited Owner custom claim
+        env:
+          FIREBASE_SERVICE_ACCOUNT_AVORA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AVORA }}
+          AVORA_TARGET_UID: ${{ inputs.target_uid }}
+          AVORA_OWNER_ACTION: ${{ inputs.action }}
+          AVORA_OWNER_REASON: ${{ inputs.reason }}
+        run: node scripts/manage-owner-claim.mjs

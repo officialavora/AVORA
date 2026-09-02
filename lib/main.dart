@@ -76,6 +76,7 @@ Future<Map<String, dynamic>> ensureAvoraAccount({String? requestedUsername}) asy
     transaction.set(usernameRef, {
       'uid': user.uid,
       'username': normalizedUsername,
+      'usernameChangedAt': FieldValue.serverTimestamp(),
       'avoraId': nextId,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -83,6 +84,7 @@ Future<Map<String, dynamic>> ensureAvoraAccount({String? requestedUsername}) asy
     transaction.set(userRef, {
       'originalAvoraId': nextId,
       'username': normalizedUsername,
+      'usernameChangedAt': FieldValue.serverTimestamp(),
       'role': 'user',
       'authorityRole': 'user',
       'commerceRole': 'none',

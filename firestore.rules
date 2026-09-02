@@ -62,7 +62,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'originalAvoraId', 'username', 'role', 'authorityRole',
           'commerceRole', 'staffAssignments', 'scopeType', 'countryCode',
-          'managerId', 'bdId', 'agencyId', 'displayName', 'createdAt'
+          'managerId', 'bdId', 'agencyId', 'displayName', 'createdAt',
+          'usernameChangedAt'
         ])
         && request.resource.data.originalAvoraId is int
         && request.resource.data.originalAvoraId >= 10000000
@@ -73,24 +74,75 @@ service cloud.firestore {
         && request.resource.data.staffAssignments.size() == 0
         && request.resource.data.scopeType == 'self'
         && request.resource.data.createdAt == request.time
+        && request.resource.data.usernameChangedAt == request.time
         && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid
           == uid
         && getAfter(/databases/$(database)/documents/system/counters).data.lastUserId
           == request.resource.data.originalAvoraId;
-      allow update: if (owns(uid)
-          && request.resource.data.originalAvoraId == resource.data.originalAvoraId
-          && request.resource.data.username == resource.data.username
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.authorityRole == resource.data.authorityRole
-          && request.resource.data.commerceRole == resource.data.commerceRole
-          && request.resource.data.staffAssignments == resource.data.staffAssignments
-          && request.resource.data.scopeType == resource.data.scopeType)
+      allow update: if (owns(uid) && (
+          (request.resource.data.originalAvoraId == resource.data.originalAvoraId
+            && request.resource.data.username == resource.data.username
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.authorityRole == resource.data.authorityRole
+            && request.resource.data.commerceRole == resource.data.commerceRole
+            && request.resource.data.staffAssignments == resource.data.staffAssignments
+            && request.resource.data.scopeType == resource.data.scopeType)
+          ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'username', 'usernameChangedAt', 'updatedAt'
+            ])
+            && validUsername(request.resource.data.username)
+            && request.resource.data.username != resource.data.username
+            && request.resource.data.usernameChangedAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && request.time >= resource.data.usernameChangedAt + duration.value(30, 'd')
+            && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid
+            && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.avoraId == resource.data.originalAvoraId
+            && getAfter(/databases/$(database)/documents/usernameHistory/$(resource.data.username)).data.uid == uid
+            && getAfter(/databases/$(database)/documents/usernameHistory/$(resource.data.username)).data.replacementUsername == request.resource.data.username))
+        )
         || isOwner();
       allow delete: if false;
     }
 
     match /ownerAccess/{uid} {
       allow read: if owns(uid) || isOwner();
+      allow write: if false;
+    }
+
+    match /usernameHistory/{username} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/usernameHistory/$(username))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username
+        && request.resource.data.keys().hasOnly([
+          'uid', 'username', 'replacementUsername', 'avoraId', 'reservedAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username == username
+        && validUsername(request.resource.data.replacementUsername)
+        && request.resource.data.avoraId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.originalAvoraId
+        && request.resource.data.reservedAt == request.time
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == request.resource.data.replacementUsername;
+      allow update, delete: if false;
+    }
+
+    match /identityAudit/{auditId} {
+      allow read: if isOwner() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'action', 'uid', 'oldUsername', 'newUsername', 'createdAt'
+        ])
+        && request.resource.data.action == 'username.rename'
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == request.resource.data.oldUsername
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == request.resource.data.newUsername;
+      allow update, delete: if false;
+    }
+
+    match /privilegedAudit/{auditId} {
+      allow read: if isOwner();
       allow write: if false;
     }
 
