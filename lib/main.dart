@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'core/avora_community_rules.dart';
 import 'services/avora_google_sign_in_adapter.dart';
 import 'ui/avora_games_screen.dart';
+import 'ui/avora_rooms_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -702,7 +703,7 @@ class _MainShellState extends State<MainShell> {
 
         final pages = <Widget>[
           const HomePage(),
-          const RoomsPage(),
+          const AvoraRoomsScreen(),
           const MessagesPage(),
           ProfilePage(account: snapshot.data!),
         ];

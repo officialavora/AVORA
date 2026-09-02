@@ -14,6 +14,7 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 
 let environment;
@@ -195,4 +196,80 @@ test('username rename enforces cooldown and preserves permanent history', async 
 
   await ageUsername('user-a', 31);
   await assertFails(rename('user-a', 'member_a'));
+});
+
+async function createRoom(uid, roomId = 'room-a') {
+  const db = environment.authenticatedContext(uid).firestore();
+  const roomRef = doc(db, `rooms/${roomId}`);
+  const memberRef = doc(db, `rooms/${roomId}/members/${uid}`);
+  const batch = writeBatch(db);
+  batch.set(roomRef, {
+    ownerUid: uid,
+    name: 'Aurora Commons',
+    description: 'An original AVORA social room',
+    status: 'active',
+    visibility: 'public',
+    memberCount: 1,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(memberRef, {
+    uid,
+    role: 'host',
+    status: 'active',
+    joinedAt: serverTimestamp(),
+    lastActiveAt: serverTimestamp(),
+  });
+  await batch.commit();
+}
+
+test('rooms persist only with matching host membership', async () => {
+  await assertSucceeds(createRoom('user-a'));
+  const db = environment.authenticatedContext('user-b').firestore();
+  await assertSucceeds(getDoc(doc(db, 'rooms/room-a')));
+  await assertFails(setDoc(doc(db, 'rooms/room-b'), {
+    ownerUid: 'user-a',
+    name: 'Forged Room',
+    description: '',
+    status: 'active',
+    visibility: 'public',
+    memberCount: 1,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test('room messages require membership and support audited moderation', async () => {
+  await createRoom('host-a');
+  const outsiderDb = environment.authenticatedContext('user-b').firestore();
+  const outsiderMessage = doc(outsiderDb, 'rooms/room-a/messages/message-a');
+  await assertFails(setDoc(outsiderMessage, {
+    senderUid: 'user-b',
+    senderName: 'Member B',
+    body: 'Blocked until joined',
+    status: 'active',
+    createdAt: serverTimestamp(),
+  }));
+
+  await assertSucceeds(setDoc(doc(outsiderDb, 'rooms/room-a/members/user-b'), {
+    uid: 'user-b',
+    role: 'member',
+    status: 'active',
+    joinedAt: serverTimestamp(),
+    lastActiveAt: serverTimestamp(),
+  }));
+  await assertSucceeds(setDoc(outsiderMessage, {
+    senderUid: 'user-b',
+    senderName: 'Member B',
+    body: 'A real persisted message',
+    status: 'active',
+    createdAt: serverTimestamp(),
+  }));
+
+  const hostDb = environment.authenticatedContext('host-a').firestore();
+  await assertSucceeds(updateDoc(doc(hostDb, 'rooms/room-a/messages/message-a'), {
+    status: 'moderated',
+    moderatedAt: serverTimestamp(),
+    moderatedBy: 'host-a',
+  }));
 });

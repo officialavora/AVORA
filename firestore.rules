@@ -154,6 +154,84 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /rooms/{roomId} {
+      allow read: if signedIn()
+        && (resource.data.status == 'active'
+          || resource.data.ownerUid == request.auth.uid
+          || isOwner());
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'name', 'description', 'status', 'visibility',
+          'memberCount', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 3
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 240
+        && request.resource.data.status == 'active'
+        && request.resource.data.visibility == 'public'
+        && request.resource.data.memberCount == 1
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid)).data.role == 'host';
+      allow update: if signedIn()
+        && (resource.data.ownerUid == request.auth.uid || isOwner())
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow create: if owns(uid)
+          && request.resource.data.keys().hasOnly([
+            'uid', 'role', 'status', 'joinedAt', 'lastActiveAt'
+          ])
+          && request.resource.data.uid == uid
+          && request.resource.data.status == 'active'
+          && request.resource.data.joinedAt == request.time
+          && request.resource.data.lastActiveAt == request.time
+          && ((request.resource.data.role == 'host'
+              && getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == uid)
+            || request.resource.data.role == 'member');
+        allow update: if owns(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.joinedAt == resource.data.joinedAt;
+        allow delete: if false;
+      }
+
+      match /messages/{messageId} {
+        allow read: if signedIn()
+          && exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid));
+        allow create: if signedIn()
+          && exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid))
+          && request.resource.data.keys().hasOnly([
+            'senderUid', 'senderName', 'body', 'status', 'createdAt'
+          ])
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.senderName is string
+          && request.resource.data.senderName.size() <= 80
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 1000
+          && request.resource.data.status == 'active'
+          && request.resource.data.createdAt == request.time;
+        allow update: if signedIn()
+          && (resource.data.senderUid == request.auth.uid
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == request.auth.uid
+            || isOwner())
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'moderatedAt', 'moderatedBy'
+          ])
+          && request.resource.data.status in ['deleted', 'moderated']
+          && request.resource.data.moderatedAt == request.time
+          && request.resource.data.moderatedBy == request.auth.uid;
+        allow delete: if false;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
