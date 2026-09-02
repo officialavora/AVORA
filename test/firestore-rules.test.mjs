@@ -293,3 +293,71 @@ test('room messages require membership and support audited moderation', async ()
     moderatedBy: 'host-a',
   }));
 });
+
+async function createConversation(uid, peerUid, id = 'user-a_user-b') {
+  const db = environment.authenticatedContext(uid).firestore();
+  await setDoc(doc(db, `conversations/${id}`), {
+    participantUids: [uid, peerUid].sort(),
+    participantNames: {[uid]: uid, [peerUid]: peerUid},
+    createdBy: uid,
+    status: 'active',
+    lastMessage: '',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+test('direct messages are private to participants and persist atomically', async () => {
+  await assertSucceeds(createConversation('user-a', 'user-b'));
+  const memberDb = environment.authenticatedContext('user-b').firestore();
+  const outsiderDb = environment.authenticatedContext('user-c').firestore();
+  await assertSucceeds(getDoc(doc(memberDb, 'conversations/user-a_user-b')));
+  await assertFails(getDoc(doc(outsiderDb, 'conversations/user-a_user-b')));
+
+  const thread = doc(memberDb, 'conversations/user-a_user-b');
+  const message = doc(memberDb, 'conversations/user-a_user-b/messages/m1');
+  const batch = writeBatch(memberDb);
+  batch.set(message, {
+    senderUid: 'user-b',
+    body: 'Persistent AVORA message',
+    status: 'active',
+    createdAt: serverTimestamp(),
+  });
+  batch.update(thread, {
+    lastMessage: 'Persistent AVORA message',
+    lastSenderUid: 'user-b',
+    updatedAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+});
+
+test('blocking stops messages in both directions and reports are immutable', async () => {
+  await createConversation('user-a', 'user-b');
+  const blockerDb = environment.authenticatedContext('user-a').firestore();
+  const peerDb = environment.authenticatedContext('user-b').firestore();
+  await assertSucceeds(setDoc(doc(blockerDb, 'blocks/user-a_user-b'), {
+    blockerUid: 'user-a',
+    blockedUid: 'user-b',
+    createdAt: serverTimestamp(),
+  }));
+  await assertFails(setDoc(
+    doc(peerDb, 'conversations/user-a_user-b/messages/blocked'),
+    {
+      senderUid: 'user-b',
+      body: 'This must not pass',
+      status: 'active',
+      createdAt: serverTimestamp(),
+    },
+  ));
+  const report = doc(peerDb, 'reports/report-a');
+  await assertSucceeds(setDoc(report, {
+    reporterUid: 'user-b',
+    targetUid: 'user-a',
+    conversationId: 'user-a_user-b',
+    category: 'direct_message',
+    details: 'Abuse report',
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(report, {status: 'dismissed'}));
+});
