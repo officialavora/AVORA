@@ -654,11 +654,38 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int index = 0;
   late Future<Map<String, dynamic>> accountFuture;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _statusSubscription;
+  String _accountStatus = 'active';
+  String _moderationReason = '';
+  DateTime? _suspensionUntil;
 
   @override
   void initState() {
     super.initState();
     accountFuture = ensureAvoraAccount();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _statusSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .listen((snapshot) {
+        final data = snapshot.data();
+        final until = data?['suspensionUntil'];
+        if (!mounted) return;
+        setState(() {
+          _accountStatus = (data?['accountStatus'] ?? 'active').toString();
+          _moderationReason = (data?['moderationReason'] ?? '').toString();
+          _suspensionUntil = until is Timestamp ? until.toDate() : null;
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _statusSubscription?.cancel();
+    super.dispose();
   }
 
   void retry() {
@@ -669,6 +696,56 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final suspended = _accountStatus == 'suspend' &&
+        (_suspensionUntil?.isAfter(DateTime.now()) ?? true);
+    if (_accountStatus == 'ban' || suspended) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _accountStatus == 'ban' ? Icons.block : Icons.timer_off,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _accountStatus == 'ban'
+                      ? 'Account banned'
+                      : 'Account temporarily suspended',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                if (_moderationReason.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(_moderationReason, textAlign: TextAlign.center),
+                ],
+                if (suspended && _suspensionUntil != null) ...[
+                  const SizedBox(height: 8),
+                  Text('Access returns after ${_suspensionUntil!.toLocal()}'),
+                ],
+                const SizedBox(height: 20),
+                FilledButton.tonalIcon(
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                    if (!context.mounted) return;
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                      (_) => false,
+                    );
+                  },
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign out'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return FutureBuilder<Map<String, dynamic>>(
       future: accountFuture,
       builder: (context, snapshot) {

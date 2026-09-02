@@ -434,3 +434,41 @@ test('only custom-claim Owner can review submitted reports', async () => {
     reviewedAt: serverTimestamp(),
   }));
 });
+
+test('Owner moderation changes account access atomically and preserves identity', async () => {
+  await allocate('user-a', 'member_a');
+  const owner = environment.authenticatedContext('owner-a', {
+    avora_owner: true,
+  }).firestore();
+  const batch = writeBatch(owner);
+  batch.update(doc(owner, 'users/user-a'), {
+    accountStatus: 'ban',
+    moderationReason: 'Repeated policy violation',
+    moderatedBy: 'owner-a',
+    moderatedAt: serverTimestamp(),
+    suspensionUntil: null,
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(doc(owner, 'moderationAudit/audit-a'), {
+    action: 'ban',
+    targetUid: 'user-a',
+    targetUsername: 'member_a',
+    ownerUid: 'owner-a',
+    reason: 'Repeated policy violation',
+    createdAt: serverTimestamp(),
+  });
+  await assertSucceeds(batch.commit());
+  await assertFails(updateDoc(doc(owner, 'users/user-a'), {
+    originalAvoraId: 10000999,
+  }));
+
+  const ordinary = environment.authenticatedContext('user-b').firestore();
+  await assertFails(setDoc(doc(ordinary, 'moderationAudit/forged'), {
+    action: 'restore',
+    targetUid: 'user-a',
+    targetUsername: 'member_a',
+    ownerUid: 'user-b',
+    reason: 'Forged moderation',
+    createdAt: serverTimestamp(),
+  }));
+});

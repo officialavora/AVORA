@@ -111,7 +111,10 @@ service cloud.firestore {
             && getAfter(/databases/$(database)/documents/usernameHistory/$(resource.data.username)).data.uid == uid
             && getAfter(/databases/$(database)/documents/usernameHistory/$(resource.data.username)).data.replacementUsername == request.resource.data.username))
         )
-        || isOwner();
+        || (isOwner()
+          && request.resource.data.originalAvoraId == resource.data.originalAvoraId
+          && request.resource.data.username == resource.data.username
+          && request.resource.data.createdAt == resource.data.createdAt);
       allow delete: if false;
     }
 
@@ -154,6 +157,24 @@ service cloud.firestore {
     match /privilegedAudit/{auditId} {
       allow read: if isOwner();
       allow write: if false;
+    }
+
+    match /moderationAudit/{auditId} {
+      allow read: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          'action', 'targetUid', 'targetUsername', 'ownerUid', 'reason',
+          'createdAt'
+        ])
+        && request.resource.data.action in ['suspend', 'ban', 'restore']
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUsername is string
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 4
+        && request.resource.data.reason.size() <= 240
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
 
     match /policy_acceptances/{uid} {

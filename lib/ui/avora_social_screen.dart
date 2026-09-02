@@ -226,6 +226,134 @@ class AvoraOwnerModerationScreen extends StatelessWidget {
     return token.claims?['avora_owner'] == true;
   }
 
+  Future<void> _manageUser(BuildContext context) async {
+    final usernameController = TextEditingController();
+    final username = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Manage AVORA member'),
+        content: TextField(
+          controller: usernameController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Exact username',
+            prefixText: '@',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              usernameController.text.trim().toLowerCase(),
+            ),
+            child: const Text('Find'),
+          ),
+        ],
+      ),
+    );
+    if (username == null || username.isEmpty || !context.mounted) return;
+    final db = FirebaseFirestore.instance;
+    final reservation = await db.collection('usernames').doc(username).get();
+    if (!reservation.exists || !context.mounted) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Member not found.')),
+        );
+      }
+      return;
+    }
+    final targetUid = reservation.data()!['uid'] as String;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(title: Text('Manage @$username')),
+            ListTile(
+              leading: const Icon(Icons.pause_circle_outline),
+              title: const Text('Suspend for 24 hours'),
+              onTap: () => Navigator.pop(sheetContext, 'suspend'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.block),
+              title: const Text('Ban account'),
+              onTap: () => Navigator.pop(sheetContext, 'ban'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.restore),
+              title: const Text('Restore / unban'),
+              onTap: () => Navigator.pop(sheetContext, 'restore'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null) return;
+    final ownerUid = FirebaseAuth.instance.currentUser!.uid;
+    final userReasonController = TextEditingController();
+    if (!context.mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Confirm ${action.toUpperCase()}'),
+        content: TextField(
+          controller: userReasonController,
+          maxLength: 240,
+          decoration: const InputDecoration(labelText: 'Audit reason'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    final reason = userReasonController.text.trim();
+    if (confirmed != true || reason.length < 4) return;
+    final userRef = db.collection('users').doc(targetUid);
+    final auditRef = db.collection('moderationAudit').doc();
+    final batch = db.batch();
+    final update = <String, dynamic>{
+      'accountStatus': action == 'restore' ? 'active' : action,
+      'moderationReason': reason,
+      'moderatedBy': ownerUid,
+      'moderatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (action == 'suspend') {
+      update['suspensionUntil'] = Timestamp.fromDate(
+        DateTime.now().toUtc().add(const Duration(hours: 24)),
+      );
+    } else {
+      update['suspensionUntil'] = null;
+    }
+    batch.update(userRef, update);
+    batch.set(auditRef, {
+      'action': action,
+      'targetUid': targetUid,
+      'targetUsername': username,
+      'ownerUid': ownerUid,
+      'reason': reason,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('@$username: $action completed and audited.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<bool>(
         future: _isOwner(),
@@ -246,7 +374,16 @@ class AvoraOwnerModerationScreen extends StatelessWidget {
               .limit(100)
               .snapshots();
           return Scaffold(
-            appBar: AppBar(title: const Text('Owner moderation')),
+            appBar: AppBar(
+              title: const Text('Owner moderation'),
+              actions: [
+                IconButton(
+                  onPressed: () => _manageUser(context),
+                  icon: const Icon(Icons.manage_accounts),
+                  tooltip: 'Manage member',
+                ),
+              ],
+            ),
             body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: reports,
               builder: (context, snapshot) {
