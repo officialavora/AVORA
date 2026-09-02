@@ -1,5 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Voice/RTC is intentionally outside the current AVORA scope. Preserve the
+    # dormant provider source without pulling the legacy native ZEGO SDK into
+    # Android builds.
+    - lib/core/avora_zego_rtc_provider.dart
+
 linter:
   rules:
     prefer_const_constructors: true
