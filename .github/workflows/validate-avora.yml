@@ -1,0 +1,67 @@
+name: Validate AVORA
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.0"
+          cache: true
+          pub-cache: true
+
+      - name: Validate persistent project state
+        run: dart run tool/validate_project_state.dart
+
+      - name: Install Firebase rules test dependencies
+        # The repository connector does not reliably transfer the generated
+        # lockfile. Keep CI reproducible enough for emulator tests by installing
+        # only the versions constrained in package.json and never running
+        # dependency lifecycle scripts.
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Test Firestore rules and concurrent identity allocation
+        run: npm run test:rules
+
+      - name: Verify protected identity and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.officialavora.app"' android/app/build.gradle.kts
+          grep -q 'Funny Room is read-only workflow reference only' AVORA_MASTER_RULE.md
+          grep -q 'Voice/RTC' docs/EXECUTABLE_SCOPE.md
+          grep -q 'Money/Recharge' docs/EXECUTABLE_SCOPE.md
+
+      - run: flutter pub get
+      # Normalize legacy and new Dart sources in the ephemeral runner before
+      # analysis. Analyzer/tests remain the enforcement gates.
+      - run: dart format lib test tool
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Compile debug APK without publishing
+        run: flutter build apk --debug
+
+      - name: Upload tested debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: avora-debug-${{ github.event.pull_request.head.sha || github.sha }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

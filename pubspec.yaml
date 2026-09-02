@@ -13,7 +13,6 @@ dependencies:
   flutter:
     sdk: flutter
   google_sign_in: 6.3.0
-  zego_express_engine: ^3.25.0
 
 dev_dependencies:
   flutter_test:

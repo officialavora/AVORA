@@ -1,0 +1,13 @@
+{
+  "name": "avora-firebase-rules-tests",
+  "private": true,
+  "scripts": {
+    "test:rules": "firebase emulators:exec --only firestore 'node --test test/firestore-rules.test.mjs'"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.2.1",
+    "firebase-admin": "^13.4.0",
+    "firebase-tools": "^14.15.2"
+  }
+}

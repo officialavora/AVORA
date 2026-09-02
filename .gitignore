@@ -51,3 +51,7 @@ AVORA_SIGNING_BACKUP_PRIVATE.zip
 
 AVORA_KEY_ALIAS.txt
 AVORA_PASSWORD_CLEAN.txt
+# Firebase emulator test dependencies
+node_modules/
+firestore-debug.log
+firebase-debug.log
