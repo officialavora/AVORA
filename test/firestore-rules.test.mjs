@@ -227,6 +227,7 @@ async function createRoom(uid, roomId = 'room-a') {
   batch.set(roomRef, {
     ownerUid: uid,
     name: 'Aurora Commons',
+    searchName: 'aurora commons',
     description: 'An original AVORA social room',
     status: 'active',
     visibility: 'public',
@@ -251,11 +252,32 @@ test('rooms persist only with matching host membership', async () => {
   await assertFails(setDoc(doc(db, 'rooms/room-b'), {
     ownerUid: 'user-a',
     name: 'Forged Room',
+    searchName: 'forged room',
     description: '',
     status: 'active',
     visibility: 'public',
     memberCount: 1,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+});
+
+test('room host can close and reopen without changing protected ownership', async () => {
+  await createRoom('host-a');
+  const host = environment.authenticatedContext('host-a').firestore();
+  const member = environment.authenticatedContext('user-b').firestore();
+  const room = doc(host, 'rooms/room-a');
+  await assertSucceeds(updateDoc(room, {
+    status: 'closed',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(doc(member, 'rooms/room-a'), {
+    status: 'active',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(room, {ownerUid: 'attacker'}));
+  await assertSucceeds(updateDoc(room, {
+    status: 'active',
     updatedAt: serverTimestamp(),
   }));
 });

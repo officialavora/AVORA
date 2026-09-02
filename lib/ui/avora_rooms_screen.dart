@@ -21,6 +21,129 @@ class _AvoraRoomsScreenState extends State<AvoraRoomsScreen> {
       .limit(100)
       .snapshots();
 
+  String _normalizeRoomName(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .trim();
+
+  Future<void> _searchRooms() async {
+    final controller = TextEditingController();
+    final mode = ValueNotifier<String>('name');
+    final query = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Search AVORA rooms'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ValueListenableBuilder<String>(
+              valueListenable: mode,
+              builder: (_, value, __) => SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'name', label: Text('Room name')),
+                  ButtonSegment(value: 'id', label: Text('Room ID')),
+                ],
+                selected: {value},
+                onSelectionChanged: (values) => mode.value = values.first,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Search value'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              '${mode.value}:${controller.text.trim()}',
+            ),
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+    mode.dispose();
+    if (query == null || !mounted) return;
+    final separator = query.indexOf(':');
+    final searchMode = query.substring(0, separator);
+    final value = query.substring(separator + 1).trim();
+    if (value.isEmpty) return;
+    try {
+      if (searchMode == 'id') {
+        final room = await _firestore.collection('rooms').doc(value).get();
+        if (room.exists && room.data()?['status'] == 'active') {
+          await _openRoom(room.id, room.data()!);
+          return;
+        }
+      } else {
+        final result = await _firestore
+            .collection('rooms')
+            .where('status', isEqualTo: 'active')
+            .where('searchName', isEqualTo: _normalizeRoomName(value))
+            .limit(20)
+            .get();
+        if (result.docs.length == 1) {
+          await _openRoom(result.docs.first.id, result.docs.first.data());
+          return;
+        }
+        if (result.docs.isNotEmpty && mounted) {
+          await showModalBottomSheet<void>(
+            context: context,
+            showDragHandle: true,
+            builder: (sheetContext) => ListView(
+              shrinkWrap: true,
+              children: [
+                const ListTile(title: Text('Matching AVORA rooms')),
+                for (final room in result.docs)
+                  ListTile(
+                    leading: const CircleAvatar(child: Icon(Icons.forum)),
+                    title: Text((room.data()['name'] ?? 'AVORA Room').toString()),
+                    subtitle: Text('ID ${room.id}'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _openRoom(room.id, room.data());
+                    },
+                  ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No active AVORA room found.')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Room search failed: $error')),
+      );
+    }
+  }
+
+  Future<void> _openRoom(String roomId, Map<String, dynamic> data) async {
+    await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AvoraRoomChatScreen(
+            roomId: roomId,
+            roomName: (data['name'] ?? 'AVORA Room').toString(),
+          ),
+        ),
+      );
+  }
+
   Future<void> _createRoom() async {
     final name = TextEditingController();
     final description = TextEditingController();
@@ -77,6 +200,7 @@ class _AvoraRoomsScreenState extends State<AvoraRoomsScreen> {
       batch.set(roomRef, {
         'ownerUid': user.uid,
         'name': roomName,
+        'searchName': _normalizeRoomName(roomName),
         'description': description.text.trim(),
         'status': 'active',
         'visibility': 'public',
@@ -115,6 +239,11 @@ class _AvoraRoomsScreenState extends State<AvoraRoomsScreen> {
       appBar: AppBar(
         title: const Text('AVORA Rooms'),
         actions: [
+          IconButton(
+            onPressed: _searchRooms,
+            icon: const Icon(Icons.search),
+            tooltip: 'Search by room name or ID',
+          ),
           IconButton(
             onPressed: _creating ? null : _createRoom,
             icon: _creating
@@ -179,7 +308,7 @@ class _AvoraRoomsScreenState extends State<AvoraRoomsScreen> {
                           ),
                           title: Text(data['name'] as String? ?? 'AVORA Room'),
                           subtitle: Text(
-                            data['description'] as String? ?? '',
+                            '${data['description'] as String? ?? ''}\nID ${room.id}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -302,6 +431,26 @@ class _AvoraRoomChatScreenState extends State<AvoraRoomChatScreen> {
     }
   }
 
+  Future<void> _manageRoom(String action) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final room = _firestore.collection('rooms').doc(widget.roomId);
+    final snapshot = await room.get();
+    if (!snapshot.exists || snapshot.data()?['ownerUid'] != user.uid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Only the room host can do that.')),
+        );
+      }
+      return;
+    }
+    await room.update({
+      'status': action,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    if (action == 'closed' && mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final messages = _firestore
@@ -313,7 +462,18 @@ class _AvoraRoomChatScreenState extends State<AvoraRoomChatScreen> {
         .limit(100)
         .snapshots();
     return Scaffold(
-      appBar: AppBar(title: Text(widget.roomName)),
+      appBar: AppBar(
+        title: Text(widget.roomName),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: _manageRoom,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'active', child: Text('Reopen room')),
+              PopupMenuItem(value: 'closed', child: Text('Close room')),
+            ],
+          ),
+        ],
+      ),
       body: Column(
         children: [
           if (_joining) const LinearProgressIndicator(),

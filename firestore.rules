@@ -192,13 +192,16 @@ service cloud.firestore {
           || isOwner());
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly([
-          'ownerUid', 'name', 'description', 'status', 'visibility',
+          'ownerUid', 'name', 'searchName', 'description', 'status', 'visibility',
           'memberCount', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 3
         && request.resource.data.name.size() <= 60
+        && request.resource.data.searchName is string
+        && request.resource.data.searchName.size() >= 3
+        && request.resource.data.searchName.size() <= 60
         && request.resource.data.description is string
         && request.resource.data.description.size() <= 240
         && request.resource.data.status == 'active'
@@ -210,7 +213,22 @@ service cloud.firestore {
       allow update: if signedIn()
         && (resource.data.ownerUid == request.auth.uid || isOwner())
         && request.resource.data.ownerUid == resource.data.ownerUid
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'searchName', 'description', 'status', 'visibility',
+          'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 3
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.searchName is string
+        && request.resource.data.searchName.size() >= 3
+        && request.resource.data.searchName.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 240
+        && request.resource.data.status in ['active', 'closed', 'suspended']
+        && request.resource.data.visibility in ['public', 'private']
+        && request.resource.data.updatedAt == request.time;
       allow delete: if false;
 
       match /members/{uid} {
