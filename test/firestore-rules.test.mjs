@@ -184,6 +184,26 @@ test('only a custom-claim Owner can perform privileged profile updates', async (
   assert.equal((await getDoc(doc(owner, 'users/user-a'))).data().displayName, 'Reviewed');
 });
 
+test('users can persist safe profile fields but cannot inject authority', async () => {
+  await assertSucceeds(allocate('user-a', 'member_a'));
+  const db = environment.authenticatedContext('user-a').firestore();
+  await assertSucceeds(updateDoc(doc(db, 'users/user-a'), {
+    displayName: 'Member A',
+    bio: 'Original AVORA profile',
+    countryCode: 'SA',
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(doc(db, 'users/user-a'), {
+    displayName: 'Member A',
+    avora_owner: true,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(doc(db, 'users/user-a'), {
+    displayName: 'X',
+    updatedAt: serverTimestamp(),
+  }));
+});
+
 test('username rename enforces cooldown and preserves permanent history', async () => {
   await assertSucceeds(allocate('user-a', 'member_a'));
   await assertFails(rename('user-a', 'member_new'));

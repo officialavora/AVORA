@@ -80,13 +80,23 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/system/counters).data.lastUserId
           == request.resource.data.originalAvoraId;
       allow update: if (owns(uid) && (
-          (request.resource.data.originalAvoraId == resource.data.originalAvoraId
-            && request.resource.data.username == resource.data.username
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.authorityRole == resource.data.authorityRole
-            && request.resource.data.commerceRole == resource.data.commerceRole
-            && request.resource.data.staffAssignments == resource.data.staffAssignments
-            && request.resource.data.scopeType == resource.data.scopeType)
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'displayName', 'bio', 'countryCode', 'photoUrl', 'updatedAt'
+            ])
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() >= 2
+            && request.resource.data.displayName.size() <= 60
+            && (!request.resource.data.keys().hasAny(['bio'])
+              || (request.resource.data.bio is string
+                && request.resource.data.bio.size() <= 240))
+            && (!request.resource.data.keys().hasAny(['countryCode'])
+              || request.resource.data.countryCode == null
+              || request.resource.data.countryCode.matches('^[A-Z]{2}$'))
+            && (!request.resource.data.keys().hasAny(['photoUrl'])
+              || request.resource.data.photoUrl == null
+              || (request.resource.data.photoUrl is string
+                && request.resource.data.photoUrl.size() <= 2048))
+            && request.resource.data.updatedAt == request.time)
           ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'username', 'usernameChangedAt', 'updatedAt'

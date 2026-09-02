@@ -77,7 +77,6 @@ Future<Map<String, dynamic>> ensureAvoraAccount({String? requestedUsername}) asy
     transaction.set(usernameRef, {
       'uid': user.uid,
       'username': normalizedUsername,
-      'usernameChangedAt': FieldValue.serverTimestamp(),
       'avoraId': nextId,
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -1062,6 +1061,12 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _FeatureTile(
+            icon: Icons.edit_outlined,
+            title: 'Edit profile',
+            subtitle: 'Update your public name, bio and country',
+            onTap: () => _editAvoraProfile(context, account),
+          ),
+          _FeatureTile(
             icon: Icons.account_balance_wallet,
             title: 'Wallet',
             subtitle: 'Coins, diamonds and transactions',
@@ -1100,6 +1105,96 @@ class ProfilePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+Future<void> _editAvoraProfile(
+  BuildContext context,
+  Map<String, dynamic> account,
+) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
+  final name = TextEditingController(
+    text: (account['displayName'] ?? user.displayName ?? '').toString(),
+  );
+  final bio = TextEditingController(text: (account['bio'] ?? '').toString());
+  final country = TextEditingController(
+    text: (account['countryCode'] ?? '').toString(),
+  );
+  final save = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Edit AVORA profile'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              maxLength: 60,
+              decoration: const InputDecoration(labelText: 'Display name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: bio,
+              maxLength: 240,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Bio'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: country,
+              maxLength: 2,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Country code',
+                hintText: 'IN, SA, AE',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+  if (save != true || !context.mounted) return;
+  final displayName = name.text.trim();
+  final countryCode = country.text.trim().toUpperCase();
+  if (displayName.length < 2 ||
+      displayName.length > 60 ||
+      (countryCode.isNotEmpty &&
+          !RegExp(r'^[A-Z]{2}$').hasMatch(countryCode))) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Check the name and country code.')),
+    );
+    return;
+  }
+  try {
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      'displayName': displayName,
+      'bio': bio.text.trim(),
+      'countryCode': countryCode.isEmpty ? null : countryCode,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await user.updateDisplayName(displayName);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile saved securely.')),
+    );
+  } on FirebaseException catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.message ?? error.code)),
     );
   }
 }
